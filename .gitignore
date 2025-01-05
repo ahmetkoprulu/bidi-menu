@@ -1,41 +1,79 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# Testing
+/coverage/
 
-# testing
-/coverage
-
-# next.js
-/.next/
+# Next.js
+.next/
 /out/
+/build/
+.vercel
 
-# production
+# Production
 /build
+/dist
 
-# misc
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+.venv/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
 .DS_Store
 *.pem
 
-# debug
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Local env files
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# vercel
-.vercel
+# Storage
+/storage/models/*
+/storage/qrcodes/*
+/storage/uploads/*
+!storage/models/.gitkeep
+!storage/qrcodes/.gitkeep
+!storage/uploads/.gitkeep
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Database
+*.sqlite
+*.db
+
+# Logs
+*.log
+logs/ 

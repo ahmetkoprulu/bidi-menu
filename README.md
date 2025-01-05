@@ -1,36 +1,159 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AR Menu System
+
+An innovative solution for restaurants to create interactive AR menus. Upload your menu, add 3D models of dishes, and let customers view your menu items in augmented reality.
+
+## Features
+
+### 📸 Menu Digitization
+1. **Upload Menu Image**
+   - Drag and drop menu images (PNG, JPEG, PDF)
+   - Watch real-time processing progress
+   - View extracted menu items
+
+2. **Edit Menu Items**
+   - Review automatically extracted items
+   - Edit names, prices, and descriptions
+   - Organize items by categories
+   - Save and update menu items
+
+### 🎨 3D Model Management
+1. **Upload 3D Models**
+   - Support for GLB/GLTF formats
+   - Maximum file size: 10MB
+   - Preview models before saving
+   - Associate models with menu items
+
+2. **Model Preview**
+   - View models in 3D viewer
+   - Rotate and inspect models
+   - Adjust model properties
+   - Test AR placement
+
+### 📱 AR Experience
+1. **Access AR Menu**
+   - Scan QR code with mobile device
+   - Grant camera permissions
+   - View full-screen AR interface
+
+2. **View Menu Items**
+   - Browse floating menu interface
+   - Scroll through available items
+   - Select items to view 3D models
+   - Filter and search menu items
+
+3. **Interact with 3D Models**
+   - Tap to place models on tables
+   - Pinch to resize models
+   - Rotate models with gestures
+   - Models automatically snap to surfaces
+
+### 🔄 QR Code Management
+1. **Generate QR Codes**
+   - Create unique codes for your menu
+   - Download in high resolution
+   - Print-ready format
+   - Multiple size options
+
+2. **Manage QR Codes**
+   - View all generated codes
+   - Download codes
+   - Regenerate if needed
+   - Track usage
 
 ## Getting Started
 
-First, run the development server:
+### For Restaurant Owners
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. **Initial Setup**
+   ```bash
+   # Access the admin dashboard
+   https://your-domain.com/admin
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Create Your Menu**
+   - Upload your menu image
+   - Review extracted items
+   - Make necessary corrections
+   - Save your menu
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Add 3D Models**
+   - Upload 3D models for dishes
+   - Associate with menu items
+   - Preview in AR
+   - Adjust as needed
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Generate QR Code**
+   - Create QR code for your menu
+   - Download and print
+   - Place on tables or menu cards
 
-## Learn More
+### For Customers
 
-To learn more about Next.js, take a look at the following resources:
+1. **Access AR Menu**
+   - Scan QR code with smartphone
+   - Allow camera permissions
+   - Point camera at table
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **View Menu**
+   - Browse through menu items
+   - Select items to view in AR
+   - Interact with 3D models
+   - Place models on table
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## System Requirements
 
-## Deploy on Vercel
+### Mobile Devices
+- iOS 13+ or Android 8.0+
+- Camera access
+- Internet connection
+- GPS enabled (for location features)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Supported Browsers
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 3D Model Requirements
+- Format: GLB/GLTF
+- Max size: 10MB
+- Recommended poly count: < 100k
+- Textures: Optimized for mobile
+
+## Best Practices
+
+### For Restaurant Owners
+1. **Menu Images**
+   - Use high-resolution photos
+   - Ensure clear text
+   - Good lighting and contrast
+   - Clean background
+
+2. **3D Models**
+   - Optimize for mobile viewing
+   - Test on multiple devices
+   - Ensure accurate scaling
+   - Use realistic textures
+
+3. **QR Code Placement**
+   - Well-lit areas
+   - Easily accessible
+   - Stable surface
+   - Include instructions
+
+### For Customers
+1. **AR Viewing**
+   - Good lighting conditions
+   - Stable surface
+   - Clear view of table
+   - Allow permissions when prompted
+
+## Support
+
+For technical support or questions:
+- Email: support@your-domain.com
+- Documentation: docs.your-domain.com
+- Help Center: help.your-domain.com
+
+## License
+
+[Your License] - See LICENSE.md for details 

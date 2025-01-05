@@ -1,0 +1,110 @@
+{
+    "version": "1.0",
+    "language": {
+        "javascript": {
+            "framework": "next.js@latest",
+            "styling": "tailwind",
+            "noTypescript": true,
+            "extensions": [
+                ".js",
+                ".jsx"
+            ]
+        },
+        "python": {
+            "version": "3.x",
+            "framework": "fastapi",
+            "extensions": [
+                ".py"
+            ]
+        }
+    },
+    "formatting": {
+        "indentSize": 2,
+        "maxLineLength": 100,
+        "useSingleQuotes": true,
+        "trailingComma": "es5",
+        "semicolons": true
+    },
+    "architecture": {
+        "frontend": {
+            "srcDir": "frontend",
+            "components": "frontend/components",
+            "pages": "frontend/pages",
+            "public": "frontend/public",
+            "assets": "frontend/public/assets",
+            "models": "frontend/public/models",
+            "qrcodes": "frontend/public/qrcodes"
+        },
+        "backend": {
+            "srcDir": "backend",
+            "api": "backend/api",
+            "models": "backend/models",
+            "services": "backend/services",
+            "utils": "backend/utils"
+        }
+    },
+    "security": {
+        "requireHttps": true,
+        "maxUploadSize": "10MB",
+        "allowedModelFormats": [
+            "glb",
+            "gltf"
+        ],
+        "allowedImageFormats": [
+            "png",
+            "jpg",
+            "jpeg",
+            "pdf"
+        ]
+    },
+    "database": {
+        "type": "postgresql",
+        "naming": {
+            "tables": "snake_case",
+            "columns": "snake_case"
+        }
+    },
+    "performance": {
+        "maxModelSize": "10MB",
+        "imageOptimization": true,
+        "compression": true
+    },
+    "dependencies": {
+        "frontend": {
+            "required": [
+                "next",
+                "react",
+                "react-dom",
+                "ar.js",
+                "tailwindcss",
+                "autoprefixer",
+                "postcss"
+            ]
+        },
+        "backend": {
+            "required": [
+                "fastapi",
+                "uvicorn",
+                "sqlalchemy",
+                "psycopg2-binary",
+                "python-multipart",
+                "pillow",
+                "pytesseract"
+            ]
+        }
+    },
+    "deployment": {
+        "ssl": {
+            "required": true,
+            "type": "self-signed"
+        },
+        "storage": {
+            "type": "local",
+            "paths": {
+                "models": "/storage/models",
+                "qrcodes": "/storage/qrcodes",
+                "uploads": "/storage/uploads"
+            }
+        }
+    }
+}
