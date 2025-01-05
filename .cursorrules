@@ -10,11 +10,11 @@
                 ".jsx"
             ]
         },
-        "python": {
-            "version": "3.x",
-            "framework": "fastapi",
+        "go": {
+            "version": "1.21",
+            "framework": "gin",
             "extensions": [
-                ".py"
+                ".go"
             ]
         }
     },
@@ -36,11 +36,15 @@
             "qrcodes": "frontend/public/qrcodes"
         },
         "backend": {
-            "srcDir": "backend",
-            "api": "backend/api",
-            "models": "backend/models",
-            "services": "backend/services",
-            "utils": "backend/utils"
+            "srcDir": "go",
+            "api": "go/internal/api",
+            "handlers": "go/internal/api/handlers",
+            "middleware": "go/internal/api/middleware",
+            "models": "go/internal/models",
+            "services": "go/internal/services",
+            "utils": "go/common/utils",
+            "migrations": "go/migrations",
+            "mq": "go/common/mq"
         }
     },
     "security": {
@@ -83,13 +87,18 @@
         },
         "backend": {
             "required": [
-                "fastapi",
-                "uvicorn",
-                "sqlalchemy",
-                "psycopg2-binary",
-                "python-multipart",
-                "pillow",
-                "pytesseract"
+                "github.com/gin-gonic/gin",
+                "github.com/golang-migrate/migrate/v4",
+                "github.com/lib/pq",
+                "github.com/golang-jwt/jwt/v5",
+                "github.com/go-playground/validator/v10",
+                "github.com/google/uuid",
+                "github.com/joho/godotenv",
+                "golang.org/x/crypto",
+                "gorm.io/gorm",
+                "gorm.io/driver/postgres",
+                "github.com/streadway/amqp",
+                "go.uber.org/zap"
             ]
         }
     },
@@ -105,6 +114,10 @@
                 "qrcodes": "/storage/qrcodes",
                 "uploads": "/storage/uploads"
             }
+        },
+        "messageQueue": {
+            "type": "rabbitmq",
+            "required": true
         }
     }
 }

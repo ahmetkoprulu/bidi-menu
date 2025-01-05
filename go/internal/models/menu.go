@@ -59,17 +59,14 @@ type MenuCategory struct {
 
 type MenuCategoryItem struct {
 	ItemID uuid.UUID `json:"itemId"`
+	Name   string    `json:"name"`
 	Price  float64   `json:"price"`
 }
 
 type MenuItem struct {
-	ID          uuid.UUID  `json:"id"`
-	ClientID    uuid.UUID  `json:"clientID"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Price       float64    `json:"price"`
-	Images      []string   `json:"images"`
-	Status      MenuStatus `json:"status"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Category    string    `json:"category"`
+	Price       float64   `json:"price"`
+	Description string    `json:"description"`
 }

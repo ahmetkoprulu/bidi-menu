@@ -4,20 +4,35 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ahmetkoprulu/bidi-menu/common/utils"
 	"github.com/ahmetkoprulu/bidi-menu/internal/models"
 	"github.com/ahmetkoprulu/bidi-menu/internal/repository"
 	"github.com/ahmetkoprulu/bidi-menu/internal/services"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type menuService struct {
-	menuRepo repository.MenuRepository
+	ocrService OCRService
+	menuRepo   repository.MenuRepository
+	logger     *utils.Loggger
 }
 
-func NewMenuService(menuRepo repository.MenuRepository) services.MenuService {
+func NewMenuService(menuRepo repository.MenuRepository, logger *zap.Logger, tessdataPath string) services.MenuService {
 	return &menuService{
-		menuRepo: menuRepo,
+		menuRepo:   menuRepo,
+		logger:     utils.Logger,
+		ocrService: NewOCRService(),
 	}
+}
+
+func (s *menuService) ScanMenu(ctx context.Context, clientID uuid.UUID, imagePaths []string) (*models.Menu, error) {
+	menu, err := s.ocrService.ScanMenu(ctx, imagePaths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan menu: %w", err)
+	}
+
+	return menu, nil
 }
 
 func (s *menuService) GetMenu(ctx context.Context, clientID uuid.UUID) ([]*models.MenuCategory, error) {
@@ -75,11 +90,10 @@ func (s *menuService) DeleteCategory(ctx context.Context, categoryID uuid.UUID) 
 func (s *menuService) CreateMenuItem(ctx context.Context, clientID, categoryID uuid.UUID, name, description string, price float64) error {
 	item := &models.MenuItem{
 		ID:          uuid.New(),
-		ClientID:    clientID,
 		Name:        name,
 		Description: description,
 		Price:       price,
-		Status:      models.MenuStatusActive,
+		// Status:      models.MenuStatusActive,
 	}
 
 	err := s.menuRepo.CreateMenuItem(ctx, item)

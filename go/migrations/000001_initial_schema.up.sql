@@ -1,5 +1,6 @@
 CREATE TYPE client_status AS ENUM ('active', 'inactive', 'trial');
 CREATE TYPE menu_status AS ENUM ('active', 'inactive');
+CREATE TYPE model_status AS ENUM ('active', 'inactive');
 
 CREATE TABLE clients (
     id UUID PRIMARY KEY,
@@ -30,6 +31,19 @@ CREATE TABLE menus (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE models (
+    id UUID PRIMARY KEY,
+    client_id UUID NOT NULL REFERENCES clients(id),
+    file_path TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    format TEXT NOT NULL,
+    metadata TEXT NOT NULL,
+    status model_status NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX idx_clients_email ON clients(email);
 CREATE INDEX idx_menu_client_id ON menus(client_id);
+CREATE INDEX idx_models_client_id ON models(client_id);

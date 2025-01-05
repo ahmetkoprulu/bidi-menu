@@ -8,6 +8,7 @@ import (
 )
 
 type MenuService interface {
+	ScanMenu(ctx context.Context, clientID uuid.UUID, imagePaths []string) (*models.Menu, error)
 	GetMenu(ctx context.Context, clientID uuid.UUID) ([]*models.MenuCategory, error)
 	GetCategory(ctx context.Context, categoryID uuid.UUID) (*models.MenuCategory, error)
 	CreateCategory(ctx context.Context, clientID uuid.UUID, name string) error

@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/ahmetkoprulu/bidi-menu/internal/api/middleware"
 	"github.com/ahmetkoprulu/bidi-menu/internal/models"
@@ -63,6 +67,12 @@ type UpdateItemsStatusRequest struct {
 	Status  models.MenuStatus `json:"status" binding:"required"`
 }
 
+// ScanMenuResponse represents the response for menu scanning
+type ScanMenuResponse struct {
+	Menu   *models.Menu `json:"menu"`
+	Errors []string     `json:"errors,omitempty"`
+}
+
 func NewMenuHandler(menuService services.MenuService) *MenuHandler {
 	return &MenuHandler{
 		menuService: menuService,
@@ -73,6 +83,7 @@ func NewMenuHandler(menuService services.MenuService) *MenuHandler {
 func (h *MenuHandler) RegisterRoutes(router *gin.RouterGroup) {
 	menu := router.Group("/menu")
 	{
+		menu.POST("/scan", h.ScanMenu)
 		menu.GET("", h.GetMenu)
 		menu.GET("/categories/:id", h.GetCategory)
 		menu.POST("/categories", h.CreateCategory)
@@ -432,4 +443,88 @@ func (h *MenuHandler) UpdateItemsStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, MessageResponse{Message: "items status updated successfully"})
+}
+
+// @Summary Scan menu images
+// @Description Upload and scan menu images to extract menu items
+// @Tags menu
+// @Accept multipart/form-data
+// @Produce json
+// @Param images formData file true "Menu images to scan (multiple files allowed)"
+// @Success 200 {object} ScanMenuResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /menu/scan [post]
+// @Security Bearer
+func (h *MenuHandler) ScanMenu(c *gin.Context) {
+	clientID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+
+	// Get uploaded files
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "failed to parse form data"})
+		return
+	}
+
+	files := form.File["images"]
+	if len(files) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "no images uploaded"})
+		return
+	}
+
+	// Validate file types
+	var imagePaths []string
+	var uploadErrors []string
+
+	for _, file := range files {
+		// Check file extension
+		ext := filepath.Ext(file.Filename)
+		if !isAllowedImageType(ext) {
+			uploadErrors = append(uploadErrors,
+				fmt.Sprintf("unsupported file type for %s: %s", file.Filename, ext))
+			continue
+		}
+
+		// Save file temporarily
+		tempPath := filepath.Join(os.TempDir(), uuid.New().String()+ext)
+		if err := c.SaveUploadedFile(file, tempPath); err != nil {
+			uploadErrors = append(uploadErrors,
+				fmt.Sprintf("failed to save file %s: %v", file.Filename, err))
+			continue
+		}
+
+		imagePaths = append(imagePaths, tempPath)
+		// Defer cleanup of temporary files
+		defer os.Remove(tempPath)
+	}
+
+	if len(imagePaths) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "no valid images were uploaded: " + strings.Join(uploadErrors, "; "),
+		})
+		return
+	}
+
+	// Process the images
+	menu, err := h.menuService.ScanMenu(c.Request.Context(), clientID, imagePaths)
+	if err != nil {
+		uploadErrors = append(uploadErrors, fmt.Sprintf("menu scanning failed: %v", err))
+	}
+
+	// Return response with any errors that occurred during processing
+	c.JSON(http.StatusOK, ScanMenuResponse{
+		Menu:   menu,
+		Errors: uploadErrors,
+	})
+}
+
+// isAllowedImageType checks if the file extension is allowed
+func isAllowedImageType(ext string) bool {
+	ext = strings.ToLower(ext)
+	allowedTypes := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+		".pdf":  true,
+	}
+	return allowedTypes[ext]
 }

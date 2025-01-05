@@ -11,7 +11,8 @@
 -- Drop tables
 DROP TABLE IF EXISTS menus;
 DROP TABLE IF EXISTS clients;
-
+DROP TABLE IF EXISTS models;
 -- Drop types
 DROP TYPE IF EXISTS client_status CASCADE;
 DROP TYPE IF EXISTS menu_status CASCADE;
+DROP TYPE IF EXISTS model_status CASCADE;
