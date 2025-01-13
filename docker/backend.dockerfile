@@ -15,10 +15,13 @@ RUN go mod download
 COPY go/ .
 
 # Build the application with security flags
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/api
 
 # Final stage
 FROM alpine:3.19
+
+# Create non-root user
+RUN adduser -D -H -h /app appuser
 
 # Set working directory
 WORKDIR /app
@@ -30,14 +33,9 @@ COPY --from=builder /build/main .
 RUN mkdir -p /storage/models /storage/qrcodes /storage/uploads && \
     chown -R appuser:appuser /storage && \
     chmod -R 755 /storage
-
-# Create config directory for environment files
-RUN mkdir -p /app/config && \
-    chown -R appuser:appuser /app/config
-
 # Create volume for persistent storage
-VOLUME ["/storage/models", "/storage/qrcodes", "/storage/uploads"]
-VOLUME ["/app/config"]
+VOLUME ["app/storage/models", "app/storage/qrcodes", "app/storage/uploads"]
+VOLUME ["/app"]
 
 # Switch to non-root user
 USER appuser
@@ -50,5 +48,5 @@ LABEL maintainer="BiDi Menu" \
 # Expose API port
 EXPOSE 8000
 
-# Run the application with environment file from config volume
+# Run the application
 CMD ["./main"]
