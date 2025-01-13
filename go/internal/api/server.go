@@ -104,7 +104,8 @@ func (s *Server) Start(addr string) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	return s.httpServer.ListenAndServeTLS("./ssl/cert.pem", "./ssl/key.pem")
+	// return s.httpServer.ListenAndServeTLS("./ssl/cert.pem", "./ssl/key.pem")
+	return s.httpServer.ListenAndServe()
 }
 
 func (s *Server) Router() *gin.Engine {
