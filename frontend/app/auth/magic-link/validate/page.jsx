@@ -1,10 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services/auth-service';
 
-export default function ValidateMagicLinkPage() {
+function LoadingState() {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="flex items-center gap-2">
+                <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                <span>Validating magic link...</span>
+            </div>
+        </div>
+    );
+}
+
+function ValidateContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [error, setError] = useState('');
@@ -32,14 +43,7 @@ export default function ValidateMagicLinkPage() {
     }, [router, searchParams]);
 
     if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                    <span>Validating magic link...</span>
-                </div>
-            </div>
-        );
+        return <LoadingState />;
     }
 
     if (error) {
@@ -68,4 +72,12 @@ export default function ValidateMagicLinkPage() {
     }
 
     return null;
+}
+
+export default function ValidateMagicLinkPage() {
+    return (
+        <Suspense fallback={<LoadingState />}>
+            <ValidateContent />
+        </Suspense>
+    );
 } 

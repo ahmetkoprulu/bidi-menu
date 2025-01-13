@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23.1-alpine AS builder
 
 # Add necessary build tools
 RUN apk add --no-cache git
@@ -34,7 +34,7 @@ RUN mkdir -p /storage/models /storage/qrcodes /storage/uploads && \
     chown -R appuser:appuser /storage && \
     chmod -R 755 /storage
 # Create volume for persistent storage
-VOLUME ["app/storage/models", "app/storage/qrcodes", "app/storage/uploads"]
+VOLUME ["/app/storage/models", "/app/storage/qrcodes", "/app/storage/uploads"]
 VOLUME ["/app"]
 
 # Switch to non-root user

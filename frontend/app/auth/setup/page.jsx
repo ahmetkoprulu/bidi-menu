@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { magicLinkService } from '@/services/magic-link-service';
 import { authService } from '@/services/auth-service';
 
-export default function SetupPage() {
+function LoadingState() {
+    return (
+        <div className="min-h-screen flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+    );
+}
+
+function SetupContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [formData, setFormData] = useState({
@@ -88,11 +96,7 @@ export default function SetupPage() {
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-            </div>
-        );
+        return <LoadingState />;
     }
 
     if (error) {
@@ -192,5 +196,13 @@ export default function SetupPage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function SetupPage() {
+    return (
+        <Suspense fallback={<LoadingState />}>
+            <SetupContent />
+        </Suspense>
     );
 }

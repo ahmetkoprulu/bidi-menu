@@ -31,10 +31,6 @@ FROM node:20-alpine
 # Set working directory
 WORKDIR /app
 
-# Add non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -50,27 +46,16 @@ COPY --from=builder /build/.next ./.next
 COPY --from=builder /build/public ./public
 COPY --from=builder /build/next.config.js ./
 
-# Create config directory for environment files
-RUN mkdir -p /app/config && \
-    chown -R nextjs:nodejs /app/config
-
 # Create volume for config
-VOLUME ["/app/config"]
-
-# Switch to non-root user
-USER nextjs
+VOLUME ["/app"]
 
 # Add metadata labels
-LABEL maintainer="BiDi Menu" \
+LABEL maintainer="BiDi Menu Frontend" \
       version="1.0" \
-      description="Frontend Next.js application"
+      description="Frontend App"
 
 # Expose port
 EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start the application
 CMD ["npm", "start"]
@@ -78,10 +63,14 @@ CMD ["npm", "start"]
 
 # Project Root
 # ├── frontend/
-# │   └── config/          # Host directory
-# │       ├── .env         # Your frontend environment file
-# │       └── .env.example
-# └── go/
-#     └── config/          # Host directory
-#         ├── .env         # Your backend environment file
-#         └── .env.example
+# │   ├── .env         # Your frontend environment file
+# │   └── .env.example
+# └── backend/
+#     └── storage/          # Host directory
+#         ├── models
+#         │   ├── glb
+#         │   └── usdz
+#         ├── thumbnails
+#         └── qrcodes
+#     ├── .env         # Your backend environment file
+#     └── .env.example
