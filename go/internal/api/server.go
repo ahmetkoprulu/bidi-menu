@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/ahmetkoprulu/bidi-menu/common/data"
+	"github.com/ahmetkoprulu/bidi-menu/common/storage"
+
 	// _ "github.com/ahmetkoprulu/bidi-menu/docs"
 	"github.com/ahmetkoprulu/bidi-menu/internal/api/handlers"
 	"github.com/ahmetkoprulu/bidi-menu/internal/api/middleware"
@@ -16,26 +18,37 @@ import (
 )
 
 type Server struct {
-	router        *gin.Engine
-	httpServer    *http.Server
-	authService   services.AuthService
-	clientService services.ClientService
-	menuService   services.MenuService
-	db            *data.PgDbContext
+	router           *gin.Engine
+	httpServer       *http.Server
+	authService      services.AuthService
+	clientService    services.ClientService
+	menuService      services.MenuService
+	modelService     services.ModelService
+	adminService     services.AdminService
+	magicLinkService services.MagicLinkService
+	storageService   storage.StorageService
+	db               *data.PgDbContext
 }
 
 func NewServer(
 	authService services.AuthService,
 	clientService services.ClientService,
 	menuService services.MenuService,
+	modelService services.ModelService,
+	adminService services.AdminService,
+	magicLinkService services.MagicLinkService,
 	db *data.PgDbContext,
 ) *Server {
 	server := &Server{
-		router:        gin.Default(),
-		authService:   authService,
-		clientService: clientService,
-		menuService:   menuService,
-		db:            db,
+		router:           gin.Default(),
+		authService:      authService,
+		clientService:    clientService,
+		menuService:      menuService,
+		modelService:     modelService,
+		adminService:     adminService,
+		magicLinkService: magicLinkService,
+		storageService:   storage.NewStorageService(),
+		db:               db,
 	}
 
 	// Global middleware
@@ -43,19 +56,16 @@ func NewServer(
 	server.router.Use(middleware.CORSMiddleware())
 	server.router.Use(middleware.ErrorMiddleware())
 	server.router.Use(middleware.RateLimit(100, 200)) // 100 requests per second with burst of 200
-
-	// Reverse proxy middleware for frontend
-	frontendURL := "http://localhost:3000"
-	if gin.Mode() == gin.ReleaseMode {
-		frontendURL = "http://localhost:3000" // Change this to your production frontend URL
-	}
-	server.router.Use(middleware.ReverseProxy(frontendURL))
+	server.router.Use(middleware.StaticFileMiddleware())
 
 	// Create handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	clientHandler := handlers.NewClientHandler(clientService)
 	menuHandler := handlers.NewMenuHandler(menuService)
 	healthHandler := handlers.NewHealthHandler()
+	adminHandler := handlers.NewAdminHandler(adminService, clientService)
+	magicLinkHandler := handlers.NewMagicLinkHandler(magicLinkService, authService, clientService)
+	modelHandler := handlers.NewModelHandler(server.modelService, server.storageService)
 
 	// Auth middleware
 	authMiddleware := middleware.AuthMiddleware(authService)
@@ -68,12 +78,14 @@ func NewServer(
 	{
 		// Public routes
 		authHandler.RegisterRoutes(v1)
-
+		adminHandler.RegisterRoutes(v1)
+		magicLinkHandler.RegisterRoutes(v1)
 		// Protected routes
 		protected := v1.Group("", authMiddleware)
 		{
 			clientHandler.RegisterRoutes(protected)
-			menuHandler.RegisterRoutes(protected)
+			menuHandler.RegisterRoutes(protected, v1)
+			modelHandler.RegisterRoutes(protected)
 		}
 	}
 
@@ -91,7 +103,8 @@ func (s *Server) Start(addr string) error {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	return s.httpServer.ListenAndServe()
+
+	return s.httpServer.ListenAndServeTLS("./ssl/cert.pem", "./ssl/key.pem")
 }
 
 func (s *Server) Router() *gin.Engine {

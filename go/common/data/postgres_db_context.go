@@ -23,6 +23,7 @@ var (
 	dbContextPg *PgDbContext
 )
 
+// PgDbContext represents a PostgreSQL database context
 type PgDbContext struct {
 	*pgxpool.Pool
 	connectionString string
@@ -125,10 +126,10 @@ func (db *PgDbContext) ScanRow(row pgx.Row, dest interface{}) error {
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("dest must be a pointer to a struct")
 	}
-	v = v.Elem()
 
+	v = v.Elem()
 	t := v.Type()
-	fields := make([]interface{}, 0, t.NumField())
+	fields := make([]interface{}, 0)
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)

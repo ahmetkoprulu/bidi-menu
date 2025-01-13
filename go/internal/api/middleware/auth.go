@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	UserIDKey         = "userID"
-	OrganizationIDKey = "organizationID"
-	UserRoleKey       = "userRole"
+	UserIDKey   = "userID"
+	ClientIDKey = "clientID"
+	UserRoleKey = "userRole"
 )
 
 func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
@@ -31,7 +31,7 @@ func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
 		}
 
 		token := tokenParts[1]
-		user, err := authService.ValidateToken(c.Request.Context(), token)
+		user, claims, err := authService.ValidateToken(c.Request.Context(), token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			c.Abort()
@@ -40,8 +40,8 @@ func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
 
 		// Set user info in context
 		c.Set(UserIDKey, user.ID)
-		// c.Set(ClientID, user.ClientID)
-		// c.Set(UserRoleKey, user.Role)
+		c.Set(ClientIDKey, user.ID)
+		c.Set(UserRoleKey, claims.Roles)
 
 		c.Next()
 	}

@@ -9,7 +9,7 @@ export default function QRCodeModal({ qrData, onClose }) {
 
     const handleDownload = async () => {
         try {
-            const response = await fetch(`https://192.168.1.28:8000${qrData.qr_code_url}`);
+            const response = await fetch(`https://192.168.1.37:8000${qrData.qr_code_url}`);
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');

@@ -9,7 +9,6 @@ import (
 	"github.com/ahmetkoprulu/bidi-menu/internal/repository"
 	"github.com/ahmetkoprulu/bidi-menu/internal/services"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 type menuService struct {
@@ -18,12 +17,48 @@ type menuService struct {
 	logger     *utils.Loggger
 }
 
-func NewMenuService(menuRepo repository.MenuRepository, logger *zap.Logger, tessdataPath string) services.MenuService {
+func NewMenuService(menuRepo repository.MenuRepository) services.MenuService {
 	return &menuService{
 		menuRepo:   menuRepo,
 		logger:     utils.Logger,
 		ocrService: NewOCRService(),
 	}
+}
+
+func (s *menuService) DeleteMenu(ctx context.Context, id uuid.UUID) error {
+	err := s.menuRepo.DeleteMenu(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete menu: %w", err)
+	}
+
+	return nil
+}
+
+func (s *menuService) GetMenuById(ctx context.Context, id uuid.UUID) (*models.Menu, error) {
+	menu, err := s.menuRepo.GetMenuById(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get menu: %w", err)
+	}
+
+	return menu, nil
+}
+
+func (s *menuService) SaveMenu(ctx context.Context, model models.Menu) (uuid.UUID, error) {
+	if model.ID == nil {
+		menuID, err := s.menuRepo.CreateMenu(ctx, &model)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to create menu: %w", err)
+		}
+
+		return menuID, nil
+	}
+
+	err := s.menuRepo.UpdateMenu(ctx, &model)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to update menu: %w", err)
+	}
+
+	return *model.ID, nil
 }
 
 func (s *menuService) ScanMenu(ctx context.Context, clientID uuid.UUID, imagePaths []string) (*models.Menu, error) {
@@ -44,31 +79,6 @@ func (s *menuService) GetMenu(ctx context.Context, clientID uuid.UUID) ([]*model
 	return categories, nil
 }
 
-func (s *menuService) GetCategory(ctx context.Context, categoryID uuid.UUID) (*models.MenuCategory, error) {
-	category, err := s.menuRepo.GetCategoryWithItems(ctx, categoryID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get category: %w", err)
-	}
-
-	return category, nil
-}
-
-func (s *menuService) CreateCategory(ctx context.Context, clientID uuid.UUID, name string) error {
-	category := &models.MenuCategory{
-		ID:       uuid.New(),
-		ClientID: clientID,
-		Name:     name,
-		Status:   models.MenuStatusActive,
-	}
-
-	err := s.menuRepo.CreateCategory(ctx, category)
-	if err != nil {
-		return fmt.Errorf("failed to create category: %w", err)
-	}
-
-	return nil
-}
-
 func (s *menuService) UpdateCategoryOrder(ctx context.Context, categoryID uuid.UUID, order int) error {
 	err := s.menuRepo.UpdateCategoryOrder(ctx, categoryID, order)
 	if err != nil {
@@ -82,39 +92,6 @@ func (s *menuService) DeleteCategory(ctx context.Context, categoryID uuid.UUID) 
 	err := s.menuRepo.DeleteCategory(ctx, categoryID)
 	if err != nil {
 		return fmt.Errorf("failed to delete category: %w", err)
-	}
-
-	return nil
-}
-
-func (s *menuService) CreateMenuItem(ctx context.Context, clientID, categoryID uuid.UUID, name, description string, price float64) error {
-	item := &models.MenuItem{
-		ID:          uuid.New(),
-		Name:        name,
-		Description: description,
-		Price:       price,
-		// Status:      models.MenuStatusActive,
-	}
-
-	err := s.menuRepo.CreateMenuItem(ctx, item)
-	if err != nil {
-		return fmt.Errorf("failed to create menu item: %w", err)
-	}
-
-	return nil
-}
-
-func (s *menuService) UpdateMenuItem(ctx context.Context, itemID uuid.UUID, name, description string, price float64) error {
-	item := &models.MenuItem{
-		ID:          itemID,
-		Name:        name,
-		Description: description,
-		Price:       price,
-	}
-
-	err := s.menuRepo.UpdateMenuItem(ctx, item)
-	if err != nil {
-		return fmt.Errorf("failed to update menu item: %w", err)
 	}
 
 	return nil

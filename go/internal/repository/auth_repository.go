@@ -13,4 +13,5 @@ type AuthRepository interface {
 	GetClientByEmail(ctx context.Context, email string) (*models.Client, error)
 	GetClientByID(ctx context.Context, clientID uuid.UUID) (*models.Client, error)
 	UpdatePassword(ctx context.Context, clientID uuid.UUID, hashedPassword string) error
+	CompleteInit(ctx context.Context, token string, req *models.RegisterRequest) error
 }

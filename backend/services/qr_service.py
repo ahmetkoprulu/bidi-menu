@@ -6,7 +6,7 @@ class QRService:
     def __init__(self):
         self.storage_path = Path("storage/qrcodes")
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.base_url = "https://192.168.1.28:3000/menu"  # Frontend URL
+        self.base_url = "https://192.168.1.37:3000/menu"  # Frontend URL
 
     async def generate_menu_qr(self, menu_id: str) -> dict:
         """Generate a QR code for a menu and return the URLs."""

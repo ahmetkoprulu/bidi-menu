@@ -12,6 +12,7 @@ type Client struct {
 	Email        string       `json:"email" pg:"email"`
 	Password     string       `json:"-" pg:"password"`
 	Phone        string       `json:"phone,omitempty" pg:"phone"`
+	CompanyName  string       `json:"companyName" pg:"company_name"`
 	Status       ClientStatus `json:"status" pg:"status"`
 	TrialEndDate *time.Time   `json:"trialEndDate,omitempty" pg:"trial_end_date"`
 	Address      *string      `json:"address,omitempty" pg:"address"`
@@ -21,6 +22,14 @@ type Client struct {
 	Logo         *string      `json:"logo,omitempty" pg:"logo"`
 	CreatedAt    time.Time    `json:"createdAt" pg:"created_at"`
 	UpdatedAt    time.Time    `json:"updatedAt" pg:"updated_at"`
+	Menus        []*Menu      `json:"menus,omitempty" pg:"-"`
+}
+
+type ClientInitRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	CompanyName string `json:"companyName" binding:"required"`
+	Phone       string `json:"phone"`
 }
 
 type RegisterRequest struct {

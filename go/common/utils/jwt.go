@@ -1,18 +1,25 @@
 package utils
 
 import (
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 )
 
 var jwtSecret []byte
 
 type Claims struct {
-	UserID     string   `json:"userId"`
-	Name       string   `json:"name"`
-	Email      string   `json:"email"`
-	ClientID   string   `json:"sessionId"`
-	Roles      []string `json:"roles"`
-	jwt.Claims `json:"claims"`
+	UserID   string   `json:"userId"`
+	Name     string   `json:"name"`
+	Email    string   `json:"email"`
+	ClientID string   `json:"clientId"`
+	Roles    []string `json:"roles"`
+	jwt.StandardClaims
+}
+
+// Valid implements the jwt.Claims interface
+func (c Claims) Valid() error {
+	return c.StandardClaims.Valid()
 }
 
 // SetJWTSecret sets the secret used to sign JWT tokens.
@@ -34,9 +41,12 @@ func GenerateJWTToken(userId string) (string, error) {
 }
 
 // GenerateJWTTokenWithClaims generates a JWT token given a Claims object. The token is signed with
-// the secret set by SetJWTSecret and will contain the claims as part of the token. The token does not
-// contain an expiration time, so it should be used carefully.
+// the secret set by SetJWTSecret and will contain the claims as part of the token.
 func GenerateJWTTokenWithClaims(claims Claims) (string, error) {
+	claims.StandardClaims = jwt.StandardClaims{
+		ExpiresAt: time.Now().Add(24 * time.Hour).Unix(), // Token expires in 24 hours
+		IssuedAt:  time.Now().Unix(),
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
 }

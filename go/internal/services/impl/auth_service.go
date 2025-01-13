@@ -3,6 +3,7 @@ package impl
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/ahmetkoprulu/bidi-menu/common/utils"
 	"github.com/ahmetkoprulu/bidi-menu/internal/models"
@@ -47,9 +48,11 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 
 	// Generate JWT token
 	token, err := utils.GenerateJWTTokenWithClaims(utils.Claims{
-		UserID: client.ID.String(),
-		Name:   client.Name,
-		Email:  client.Email,
+		UserID:   client.ID.String(),
+		Name:     client.Name,
+		Email:    client.Email,
+		ClientID: client.ID.String(),
+		Roles:    []string{"client"},
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
@@ -58,20 +61,34 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 	return client, token, nil
 }
 
-func (s *authService) ValidateToken(ctx context.Context, token string) (*models.Client, error) {
+func (s *authService) CompleteInit(ctx context.Context, token string, req *models.RegisterRequest) error {
+	// Validate magic link
+	err := s.authRepo.CompleteInit(ctx, token, req)
+	if err != nil {
+		return fmt.Errorf("invalid or expired token: %w", err)
+	}
+
+	return nil
+}
+
+func (s *authService) ValidateToken(ctx context.Context, token string) (*models.Client, *utils.Claims, error) {
 	// Validate JWT token
 	claims, err := utils.ValidateJwTTokenWithClaims(token)
 	if err != nil {
-		return nil, fmt.Errorf("invalid token: %w", err)
+		return nil, nil, fmt.Errorf("invalid token: %w", err)
 	}
 
 	// Get client from database
-	client, err := s.authRepo.GetClientByEmail(ctx, claims.Email)
-	if err != nil {
-		return nil, fmt.Errorf("client not found: %w", err)
+	if !slices.Contains(claims.Roles, "admin") {
+		client, err := s.authRepo.GetClientByEmail(ctx, claims.Email)
+		if err != nil {
+			return nil, nil, fmt.Errorf("client not found: %w", err)
+		}
+
+		return client, claims, nil
 	}
 
-	return client, nil
+	return &models.Client{ID: uuid.New()}, claims, nil
 }
 
 func (s *authService) ResetPassword(ctx context.Context, clientID uuid.UUID, currentPassword, newPassword string) error {
@@ -100,4 +117,18 @@ func (s *authService) ResetPassword(ctx context.Context, clientID uuid.UUID, cur
 	}
 
 	return nil
+}
+
+func (s *authService) GenerateToken(ctx context.Context, client *models.Client) (string, error) {
+	// Generate JWT token
+	token, err := utils.GenerateJWTTokenWithClaims(utils.Claims{
+		UserID: client.ID.String(),
+		Name:   client.Name,
+		Email:  client.Email,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return token, nil
 }

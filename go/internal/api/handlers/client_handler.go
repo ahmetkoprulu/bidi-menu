@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -48,6 +49,7 @@ func (h *ClientHandler) RegisterRoutes(router *gin.RouterGroup) {
 		clients.PUT("/:id", h.UpdateClient)
 		clients.PUT("/:id/status", h.UpdateClientStatus)
 		clients.PUT("/:id/logo", h.UpdateClientLogo)
+		clients.POST("/init", h.InitClient)
 	}
 }
 
@@ -72,6 +74,22 @@ func (h *ClientHandler) GetClient(c *gin.Context) {
 	client, err := h.clientService.GetClient(c.Request.Context(), clientID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, client)
+}
+
+func (h *ClientHandler) InitClient(c *gin.Context) {
+	var model models.ClientInitRequest
+	if err := c.ShouldBindJSON(&model); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	client, err := h.clientService.InitClient(context.Background(), &model)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/ahmetkoprulu/bidi-menu/internal/models"
@@ -42,6 +43,7 @@ func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup) {
 		auth.POST("/register", h.Register)
 		auth.POST("/login", h.Login)
 		auth.PUT("/password", h.ResetPassword)
+		auth.POST("/setup", h.CompleteInit)
 	}
 }
 
@@ -86,7 +88,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	client, token, err := h.authService.Login(c.Request.Context(), req.Email, req.Password)
+	client, token, err := h.authService.Login(context.Background(), req.Email, req.Password)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
@@ -96,6 +98,28 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Token:  token,
 		Client: *client,
 	})
+}
+
+func (h *AuthHandler) CompleteInit(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "token is required"})
+		return
+	}
+
+	var req models.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	err := h.authService.CompleteInit(c.Request.Context(), token, &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, MessageResponse{Message: "init completed successfully"})
 }
 
 // PasswordResetRequest represents the request body for password reset

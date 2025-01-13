@@ -38,7 +38,8 @@ import (
 func main() {
 	config := config.LoadEnvironment()
 	fmt.Println(config)
-	utils.InitElasticLogger(config.ElasticUrl, config.ServiceName)
+	// utils.InitElasticLogger(config.ElasticUrl, config.ServiceName)
+	utils.InitLogger()
 	defer utils.Logger.Sync()
 
 	utils.SetJWTSecret(config.JWTSecret)
@@ -64,14 +65,28 @@ func main() {
 	authRepo := repoImpl.NewAuthRepository(db)
 	clientRepo := repoImpl.NewClientRepository(db)
 	menuRepo := repoImpl.NewMenuRepository(db)
+	magicLinkRepo := repoImpl.NewMagicLinkRepository(db)
+	modelRepo := repoImpl.NewModelRepository(db)
 
 	// Initialize services
+	emailService := serviceImpl.NewEmailService(config)
+	magicLinkService := serviceImpl.NewMagicLinkService(magicLinkRepo)
 	authService := serviceImpl.NewAuthService(authRepo)
-	clientService := serviceImpl.NewClientService(clientRepo)
+	clientService := serviceImpl.NewClientService(clientRepo, emailService, magicLinkService)
 	menuService := serviceImpl.NewMenuService(menuRepo)
+	modelService := serviceImpl.NewModelService(modelRepo)
+	adminService := serviceImpl.NewAdminService()
 
 	// Create and configure server
-	server := api.NewServer(authService, clientService, menuService, db)
+	server := api.NewServer(
+		authService,
+		clientService,
+		menuService,
+		modelService,
+		adminService,
+		magicLinkService,
+		db,
+	)
 
 	// Start server in a goroutine
 	go func() {

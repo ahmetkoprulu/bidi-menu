@@ -18,7 +18,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { createPortal } from 'react-dom';
-import Section from '@/components/containers/Section';
+import Section from '@/components/containers/Category';
 import SortableItem from '@/components/SortableItem';
 import DashedButton from '@/components/buttons/DashedButton';
 

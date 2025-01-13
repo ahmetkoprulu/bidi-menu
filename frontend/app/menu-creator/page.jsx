@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { Camera, Upload, QrCode, Edit, Trash2, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import QRCodeModal from '@/components/QRCodeModal';
 
-const API_URL = 'https://192.168.1.28:8000';
+const API_URL = 'https://192.168.1.37:8000';
 
 export default function MenuCreatorPage() {
     const [menuItems, setMenuItems] = useState([]);

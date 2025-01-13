@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://192.168.1.28:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://192.168.1.37:8000/api';
 
 // Helper function for API calls
 async function fetchAPI(endpoint, options = {}) {

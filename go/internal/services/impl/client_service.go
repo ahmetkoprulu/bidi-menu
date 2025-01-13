@@ -11,13 +11,41 @@ import (
 )
 
 type clientService struct {
-	clientRepo repository.ClientRepository
+	clientRepo       repository.ClientRepository
+	emailService     services.EmailService
+	magicLinkService services.MagicLinkService
 }
 
-func NewClientService(clientRepo repository.ClientRepository) services.ClientService {
+func NewClientService(clientRepo repository.ClientRepository, emailService services.EmailService, magicLinkService services.MagicLinkService) services.ClientService {
 	return &clientService{
-		clientRepo: clientRepo,
+		clientRepo:       clientRepo,
+		emailService:     emailService,
+		magicLinkService: magicLinkService,
 	}
+}
+
+func (s *clientService) InitClient(ctx context.Context, model *models.ClientInitRequest) (models.Client, error) {
+	client, err := s.clientRepo.InitClient(ctx, model)
+	if err != nil {
+		return models.Client{}, fmt.Errorf("failed to init client: %w", err)
+	}
+
+	magicLink, err := s.magicLinkService.CreateMagicLink(ctx, &models.CreateMagicLinkRequest{
+		ClientID: client.ID,
+		Email:    client.Email,
+		Purpose:  models.MagicLinkPurposeInit,
+	})
+
+	if err != nil {
+		return models.Client{}, fmt.Errorf("failed to create magic link: %w", err)
+	}
+
+	err = s.emailService.SendMagicLink(ctx, *magicLink)
+	if err != nil {
+		return models.Client{}, fmt.Errorf("failed to send magic link: %w", err)
+	}
+
+	return client, nil
 }
 
 func (s *clientService) GetClient(ctx context.Context, clientID uuid.UUID) (*models.Client, error) {
@@ -64,6 +92,14 @@ func (s *clientService) SearchClients(ctx context.Context, query string, page, p
 	clients, totalCount, err := s.clientRepo.SearchClients(ctx, query, page, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to search clients: %w", err)
+	}
+	return clients, totalCount, nil
+}
+
+func (s *clientService) GetClientsWithMenus(ctx context.Context, page, pageSize int) ([]*models.Client, int, error) {
+	clients, totalCount, err := s.clientRepo.GetClientsWithMenus(ctx, page, pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get clients with menus: %w", err)
 	}
 	return clients, totalCount, nil
 }

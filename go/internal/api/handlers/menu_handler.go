@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/ahmetkoprulu/bidi-menu/internal/api/middleware"
@@ -80,23 +82,61 @@ func NewMenuHandler(menuService services.MenuService) *MenuHandler {
 }
 
 // RegisterRoutes registers all routes for menu operations
-func (h *MenuHandler) RegisterRoutes(router *gin.RouterGroup) {
+func (h *MenuHandler) RegisterRoutes(router *gin.RouterGroup, v1 *gin.RouterGroup) {
+	v1.GET("/menu/:id", h.GetMenuById)
+
 	menu := router.Group("/menu")
 	{
+		menu.POST("", h.CreateMenu)
 		menu.POST("/scan", h.ScanMenu)
 		menu.GET("", h.GetMenu)
-		menu.GET("/categories/:id", h.GetCategory)
-		menu.POST("/categories", h.CreateCategory)
-		menu.PUT("/categories/:id/order", h.UpdateCategoryOrder)
-		menu.DELETE("/categories/:id", h.DeleteCategory)
-		menu.POST("/items", h.CreateMenuItem)
-		menu.PUT("/items/:id", h.UpdateMenuItem)
-		menu.DELETE("/items/:id", h.DeleteMenuItem)
-		menu.PUT("/items/:id/images", h.UpdateItemImages)
-		menu.PUT("/categories/reorder", h.ReorderCategories)
-		menu.PUT("/categories/:id/status", h.UpdateCategoryStatus)
-		menu.PUT("/items/status", h.UpdateItemsStatus)
+		menu.DELETE("/:id", h.DeleteMenu)
 	}
+}
+
+func (h *MenuHandler) DeleteMenu(c *gin.Context) {
+	id := c.Param("id")
+	err := h.menuService.DeleteMenu(c.Request.Context(), uuid.MustParse(id))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+}
+
+func (h *MenuHandler) GetMenuById(c *gin.Context) {
+	id := c.Param("id")
+	menu, err := h.menuService.GetMenuById(c.Request.Context(), uuid.MustParse(id))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, menu)
+}
+
+func (h *MenuHandler) CreateMenu(c *gin.Context) {
+	var model models.Menu
+	if err := c.ShouldBindJSON(&model); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	clientID := c.MustGet(middleware.ClientIDKey).(uuid.UUID)
+	roles := c.MustGet(middleware.UserRoleKey).([]string)
+
+	if !slices.Contains(roles, "admin") && clientID != model.ClientID {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "you are not authorized to create a menu"})
+		return
+	}
+
+	menuID, err := h.menuService.SaveMenu(context.Background(), model)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	model.ID = &menuID
+	c.JSON(http.StatusOK, model)
 }
 
 // @Summary Get menu
@@ -117,332 +157,6 @@ func (h *MenuHandler) GetMenu(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, menu)
-}
-
-// @Summary Get category
-// @Description Get a specific category with its items
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Category ID"
-// @Success 200 {object} models.MenuCategory
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Router /menu/categories/{id} [get]
-// @Security Bearer
-func (h *MenuHandler) GetCategory(c *gin.Context) {
-	categoryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid category ID"})
-		return
-	}
-
-	category, err := h.menuService.GetCategory(c.Request.Context(), categoryID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, category)
-}
-
-// @Summary Create category
-// @Description Create a new menu category
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param category body CreateCategoryRequest true "Category name"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/categories [post]
-// @Security Bearer
-func (h *MenuHandler) CreateCategory(c *gin.Context) {
-	clientID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
-	var req CreateCategoryRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err := h.menuService.CreateCategory(c.Request.Context(), clientID, req.Name)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "category created successfully"})
-}
-
-// @Summary Update category order
-// @Description Update the display order of a category
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Category ID"
-// @Param order body UpdateCategoryOrderRequest true "New order"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/categories/{id}/order [put]
-// @Security Bearer
-func (h *MenuHandler) UpdateCategoryOrder(c *gin.Context) {
-	categoryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid category ID"})
-		return
-	}
-
-	var req UpdateCategoryOrderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err = h.menuService.UpdateCategoryOrder(c.Request.Context(), categoryID, req.Order)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "category order updated successfully"})
-}
-
-// @Summary Delete category
-// @Description Delete a menu category
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Category ID"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/categories/{id} [delete]
-// @Security Bearer
-func (h *MenuHandler) DeleteCategory(c *gin.Context) {
-	categoryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid category ID"})
-		return
-	}
-
-	err = h.menuService.DeleteCategory(c.Request.Context(), categoryID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "category deleted successfully"})
-}
-
-// @Summary Create menu item
-// @Description Create a new menu item
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param item body CreateMenuItemRequest true "Menu item details"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/items [post]
-// @Security Bearer
-func (h *MenuHandler) CreateMenuItem(c *gin.Context) {
-	clientID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
-	var req CreateMenuItemRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err := h.menuService.CreateMenuItem(c.Request.Context(), clientID, req.CategoryID,
-		req.Name, req.Description, req.Price)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "menu item created successfully"})
-}
-
-// @Summary Update menu item
-// @Description Update an existing menu item
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Item ID"
-// @Param item body UpdateMenuItemRequest true "Menu item details"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/items/{id} [put]
-// @Security Bearer
-func (h *MenuHandler) UpdateMenuItem(c *gin.Context) {
-	itemID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid item ID"})
-		return
-	}
-
-	var req UpdateMenuItemRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err = h.menuService.UpdateMenuItem(c.Request.Context(), itemID,
-		req.Name, req.Description, req.Price)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "menu item updated successfully"})
-}
-
-// @Summary Delete menu item
-// @Description Delete a menu item
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Item ID"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/items/{id} [delete]
-// @Security Bearer
-func (h *MenuHandler) DeleteMenuItem(c *gin.Context) {
-	itemID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid item ID"})
-		return
-	}
-
-	err = h.menuService.DeleteMenuItem(c.Request.Context(), itemID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "menu item deleted successfully"})
-}
-
-// @Summary Update item images
-// @Description Update the images of a menu item
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Item ID"
-// @Param images body UpdateItemImagesRequest true "Image URLs"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/items/{id}/images [put]
-// @Security Bearer
-func (h *MenuHandler) UpdateItemImages(c *gin.Context) {
-	itemID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid item ID"})
-		return
-	}
-
-	var req UpdateItemImagesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err = h.menuService.UpdateItemImages(c.Request.Context(), itemID, req.Images)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "item images updated successfully"})
-}
-
-// @Summary Reorder categories
-// @Description Update the display order of multiple categories
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param categories body ReorderCategoriesRequest true "Category orders"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/categories/reorder [put]
-// @Security Bearer
-func (h *MenuHandler) ReorderCategories(c *gin.Context) {
-	var req ReorderCategoriesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	categoryOrders := make(map[uuid.UUID]int)
-	for _, category := range req.Categories {
-		categoryOrders[category.ID] = category.Order
-	}
-
-	err := h.menuService.ReorderCategories(c.Request.Context(), categoryOrders)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "categories reordered successfully"})
-}
-
-// @Summary Update category status
-// @Description Update the status of a category and its items
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param id path string true "Category ID"
-// @Param status body UpdateCategoryStatusRequest true "Category status"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/categories/{id}/status [put]
-// @Security Bearer
-func (h *MenuHandler) UpdateCategoryStatus(c *gin.Context) {
-	categoryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid category ID"})
-		return
-	}
-
-	var req UpdateCategoryStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err = h.menuService.UpdateCategoryStatus(c.Request.Context(), categoryID, req.Status)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "category status updated successfully"})
-}
-
-// @Summary Update items status
-// @Description Update the status of multiple menu items
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param request body UpdateItemsStatusRequest true "Items status"
-// @Success 200 {object} MessageResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /menu/items/status [put]
-// @Security Bearer
-func (h *MenuHandler) UpdateItemsStatus(c *gin.Context) {
-	var req UpdateItemsStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	err := h.menuService.UpdateItemsStatus(c.Request.Context(), req.ItemIDs, req.Status)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, MessageResponse{Message: "items status updated successfully"})
 }
 
 // @Summary Scan menu images

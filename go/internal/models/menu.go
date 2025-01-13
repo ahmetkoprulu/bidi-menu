@@ -1,13 +1,13 @@
 package models
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
 type Menu struct {
-	ID                uuid.UUID          `json:"id" pg:"id"`
+	ID                *uuid.UUID         `json:"id" pg:"id"`
+	Label             string             `json:"label" pg:"label"`
+	Description       string             `json:"description" pg:"description"`
 	ClientID          uuid.UUID          `json:"clientID" pg:"client_id"`
 	Status            string             `json:"status" pg:"status"`
 	Categories        []*MenuCategory    `json:"categories,omitempty" pg:"categories"`
@@ -15,6 +15,7 @@ type Menu struct {
 	QRCutomization    *QRCutomization    `json:"qrCustomization,omitempty" pg:"qr_customization"`
 	QRCode            string             `json:"qrCode,omitempty" pg:"qr_code"`
 	CreatedAt         string             `json:"createdAt" pg:"created_at"`
+	UpdatedAt         string             `json:"updatedAt" pg:"updated_at"`
 }
 
 type MenuCustomization struct {
@@ -48,25 +49,15 @@ type QRCutomization struct {
 
 type MenuCategory struct {
 	ID        uuid.UUID           `json:"id"`
-	ClientID  uuid.UUID           `json:"clientID"`
 	Name      string              `json:"name"`
-	Image     string              `json:"image"`
-	Status    MenuStatus          `json:"status"`
 	MenuItems []*MenuCategoryItem `json:"menuItems,omitempty"`
-	CreatedAt time.Time           `json:"createdAt"`
-	UpdatedAt time.Time           `json:"updatedAt"`
 }
 
 type MenuCategoryItem struct {
-	ItemID uuid.UUID `json:"itemId"`
-	Name   string    `json:"name"`
-	Price  float64   `json:"price"`
-}
-
-type MenuItem struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Category    string    `json:"category"`
-	Price       float64   `json:"price"`
-	Description string    `json:"description"`
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Price       float64    `json:"price"`
+	ModelID     *uuid.UUID `json:"modelId"`
+	Model       *Model     `json:"modelInfo,omitempty"`
 }

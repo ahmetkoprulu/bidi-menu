@@ -20,5 +20,13 @@ func LoadEnvironment() *models.Config {
 		ServiceName:   os.Getenv("SERVICE_NAME"),
 		ServerPort:    os.Getenv("PORT"),
 		TesseractPath: os.Getenv("TESSERACT_PATH"),
+		BaseUrl:       os.Getenv("BASE_URL"),
+		EmailConfig: models.EmailConfig{
+			SMTPHost:     os.Getenv("SMTP_HOST"),
+			SMTPPort:     os.Getenv("SMTP_PORT"),
+			SMTPUsername: os.Getenv("SMTP_USERNAME"),
+			SMTPPassword: os.Getenv("SMTP_PASSWORD"),
+			FromEmail:    os.Getenv("FROM_EMAIL"),
+		},
 	}
 }
