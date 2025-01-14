@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23.1-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Add necessary build tools
 RUN apk add --no-cache git
@@ -29,14 +29,6 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /build/main .
 
-# Create storage directories as specified in custom instructions
-RUN mkdir -p /storage/models /storage/qrcodes /storage/uploads && \
-    chown -R appuser:appuser /storage && \
-    chmod -R 755 /storage
-# Create volume for persistent storage
-VOLUME ["/app/storage/models", "/app/storage/qrcodes", "/app/storage/uploads"]
-VOLUME ["/app"]
-
 # Switch to non-root user
 USER appuser
 
@@ -49,4 +41,4 @@ LABEL maintainer="BiDi Menu" \
 EXPOSE 8000
 
 # Run the application
-CMD ["./main"]
+CMD ["/app/main"]
