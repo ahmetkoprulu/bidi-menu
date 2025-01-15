@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./.env
+      - ./development.env
     networks:
       - bidi_network
       - external_postgres_network

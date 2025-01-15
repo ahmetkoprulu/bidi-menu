@@ -20,17 +20,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/api
 # Final stage
 FROM alpine:3.19
 
-# Create non-root user
-RUN adduser -D -H -h /app appuser
-
 # Set working directory
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /build/main .
 
-# Switch to non-root user
-USER appuser
+# Use root user
+USER root
 
 # Add metadata labels
 LABEL maintainer="BiDi Menu" \
