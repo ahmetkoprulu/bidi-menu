@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { menuService } from '@/services/menu-service';
 
-const API_URL = process.env.BASE_URL || 'https://192.168.1.37:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
 
 const ModelViewer = ({ item, onClose }) => {
     const modelRef = useRef(null);
