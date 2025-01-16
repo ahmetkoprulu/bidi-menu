@@ -5,8 +5,16 @@ import { menuService } from '@/services/menu-service';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
 
-const ModelViewer = ({ item, onClose }) => {
+// Cache for loaded models
+const modelCache = new Map();
+
+const ModelViewer = ({ item, menuId, onClose }) => {
     const modelRef = useRef(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadingProgress, setLoadingProgress] = useState(0);
+    const [loadError, setLoadError] = useState(null);
+    const [showShareSuccess, setShowShareSuccess] = useState(false);
+    const modelKey = `${item?.id}-${item?.modelInfo?.glbFile}`;
 
     if (!item?.modelInfo) return null;
 
@@ -14,32 +22,201 @@ const ModelViewer = ({ item, onClose }) => {
     const usdzUrl = `${API_URL}${item.modelInfo.usdzFile}.usdz`;
     const thumbnailUrl = `${API_URL}${item.modelInfo.thumbnail}.png`;
 
+    useEffect(() => {
+        // Reset states when item changes
+        setIsLoading(true);
+        setLoadingProgress(0);
+        setLoadError(null);
+
+        // Check if model is already cached
+        if (modelCache.has(modelKey)) {
+            console.log('Using cached model:', modelKey);
+            setIsLoading(false);
+            setLoadingProgress(100);
+            return;
+        }
+
+        // Add event listeners
+        const modelViewer = modelRef.current;
+        if (modelViewer) {
+            modelViewer.addEventListener('progress', handleProgress);
+            modelViewer.addEventListener('load', handleModelLoad);
+            modelViewer.addEventListener('error', handleError);
+
+            // Preload the model
+            const preloadLink = document.createElement('link');
+            preloadLink.rel = 'preload';
+            preloadLink.as = 'fetch';
+            preloadLink.href = glbUrl;
+            document.head.appendChild(preloadLink);
+
+            // Cache headers for better browser caching
+            fetch(glbUrl, {
+                method: 'HEAD',
+                headers: {
+                    'Cache-Control': 'max-age=31536000',
+                },
+            }).catch(console.error);
+        }
+
+        return () => {
+            // Clean up event listeners
+            if (modelViewer) {
+                modelViewer.removeEventListener('progress', handleProgress);
+                modelViewer.removeEventListener('load', handleModelLoad);
+                modelViewer.removeEventListener('error', handleError);
+            }
+        };
+    }, [modelKey, glbUrl]);
+
     const handleModelLoad = () => {
-        console.log('Model loaded successfully');
+        setIsLoading(false);
+        setLoadingProgress(100);
+        // Cache the loaded model
+        modelCache.set(modelKey, true);
+        console.log('Model loaded and cached:', modelKey);
+    };
+
+    const handleProgress = (event) => {
+        const progress = event.detail?.totalProgress || 0;
+        const percentage = Math.round(progress * 100);
+        console.log('Loading progress:', percentage);
+        setLoadingProgress(percentage);
     };
 
     const handleError = (error) => {
+        setIsLoading(false);
+        setLoadError('Error loading 3D model');
         console.error('Error loading model:', error);
-        alert('Error loading 3D model. Please try again.');
+        // Remove from cache if loading failed
+        modelCache.delete(modelKey);
+    };
+
+    const handleShare = async () => {
+        const shareUrl = `${window.location.origin}/menu/view/${menuId}?item=${item.id}`;
+        const shareData = {
+            title: `${item.name} - AR Menu`,
+            text: `Check out ${item.name} in 3D on our interactive AR menu! You can view it in augmented reality.`,
+            url: shareUrl,
+        };
+
+        try {
+            if (navigator.share && !navigator.userAgent.includes('WhatsApp')) {
+                // Use Web Share API for most platforms
+                await navigator.share(shareData);
+            } else {
+                // For WhatsApp and fallback
+                const whatsappText = encodeURIComponent(`${shareData.text}\n${shareUrl}`);
+
+                if (navigator.userAgent.includes('WhatsApp')) {
+                    // If inside WhatsApp webview, just copy the link
+                    await navigator.clipboard.writeText(shareUrl);
+                    setShowShareSuccess(true);
+                    setTimeout(() => setShowShareSuccess(false), 2000);
+                } else {
+                    // Try to open WhatsApp if available
+                    const whatsappUrl = `whatsapp://send?text=${whatsappText}`;
+                    window.location.href = whatsappUrl;
+
+                    // Fallback to web WhatsApp after a short delay if mobile WhatsApp doesn't open
+                    setTimeout(() => {
+                        if (document.hidden) return; // Don't redirect if WhatsApp opened
+                        window.open(`https://wa.me/?text=${whatsappText}`, '_blank');
+                    }, 300);
+                }
+            }
+        } catch (error) {
+            console.error('Error sharing:', error);
+            // Fallback to copying the URL
+            await navigator.clipboard.writeText(shareUrl);
+            setShowShareSuccess(true);
+            setTimeout(() => setShowShareSuccess(false), 2000);
+        }
     };
 
     return (
-        <model-viewer
-            ref={modelRef}
-            src={glbUrl}
-            ios-src={usdzUrl}
-            poster={thumbnailUrl}
-            ar
-            ar-modes="quick-look"
-            camera-controls
-            auto-rotate
-            shadow-intensity="1"
-            environment-image="neutral"
-            exposure="1"
-            style={{ width: '100%', height: '100%', background: 'transparent' }}
-            onLoad={handleModelLoad}
-            onError={handleError}
-        />
+        <div className="relative w-full h-full">
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+                <button
+                    onClick={handleShare}
+                    className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-all shadow-lg"
+                    title="Share item"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                        />
+                    </svg>
+                </button>
+            </div>
+
+            {showShareSuccess && (
+                <div className="absolute top-16 right-4 z-10 bg-black/90 text-white px-4 py-2 rounded-lg text-sm animate-fade-in-out">
+                    Link copied!
+                </div>
+            )}
+
+            <model-viewer
+                ref={modelRef}
+                src={glbUrl}
+                ios-src={usdzUrl}
+                poster={thumbnailUrl}
+                ar
+                ar-modes="quick-look"
+                camera-controls
+                auto-rotate
+                shadow-intensity="1"
+                environment-image="neutral"
+                exposure="1"
+                loading="eager"
+                reveal="auto"
+                style={{ width: '100%', height: '100%', background: 'transparent' }}
+                cache-size="1024"
+                max-cache-groups="30"
+            />
+
+            {isLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="w-20 h-20 relative">
+                        <svg className="w-full h-full animate-spin text-white" viewBox="0 0 24 24">
+                            <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                strokeLinecap="round"
+                            />
+                            <circle
+                                className="opacity-75"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeDasharray="40 60"
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">{loadingProgress}%</span>
+                        </div>
+                    </div>
+                    <p className="mt-3 text-white/90 text-sm">Loading...</p>
+                </div>
+            )}
+
+            {loadError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm max-w-[80%] text-center">
+                        {loadError}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -99,11 +276,82 @@ const ARMenuView = ({ menuId }) => {
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     const [cameraError, setCameraError] = useState(null);
+    const [sharedItemId, setSharedItemId] = useState(null);
 
     const scrollContainerRef = useRef(null);
     const categoryScrollRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
+
+    // Get shared item ID from URL
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const itemId = urlParams.get('item');
+        if (itemId) {
+            setSharedItemId(itemId);
+            console.log('Shared item ID:', itemId);
+        }
+    }, []);
+
+    // Fetch menu data
+    useEffect(() => {
+        const fetchMenu = async () => {
+            try {
+                const menuData = await menuService.getMenu(menuId);
+                setMenu(menuData);
+
+                // Flatten menu items and extract categories
+                const items = menuData.categories?.flatMap(category =>
+                    category.menuItems?.filter(item => item.status !== 'inactive' && item.modelInfo)
+                        .map(item => ({ ...item, category: category.name })) || []
+                ) || [];
+
+                // Extract unique categories
+                const uniqueCategories = ['All', ...new Set(items.map(item => item.category))];
+                setCategories(uniqueCategories);
+                setMenuItems(items);
+
+                // Handle shared item selection
+                if (sharedItemId) {
+                    const sharedItem = items.find(item => item.id === sharedItemId);
+                    if (sharedItem) {
+                        setSelectedItem(sharedItem);
+                        setSelectedCategory(sharedItem.category);
+                        console.log('Found and selected shared item:', sharedItem.name);
+                    }
+                } else if (items.length > 0) {
+                    setSelectedItem(items[0]);
+                }
+
+                setIsLoading(false);
+            } catch (error) {
+                console.error('Error fetching menu:', error);
+                setIsLoading(false);
+            }
+        };
+
+        fetchMenu();
+    }, [menuId, sharedItemId]);
+
+    // Update filtered items when category or items change
+    useEffect(() => {
+        const newFilteredItems = selectedCategory === 'All'
+            ? menuItems
+            : menuItems.filter(item => item.category === selectedCategory);
+
+        setFilteredItems(newFilteredItems);
+
+        // Ensure selected item is in filtered items
+        if (selectedItem && !newFilteredItems.find(item => item.id === selectedItem.id)) {
+            // If shared item exists and category changes, keep the shared item selected
+            if (sharedItemId && selectedItem.id === sharedItemId) {
+                setSelectedCategory('All');
+            } else {
+                // Otherwise, select the first item in the filtered list
+                setSelectedItem(newFilteredItems[0] || null);
+            }
+        }
+    }, [selectedCategory, menuItems, selectedItem, sharedItemId]);
 
     const startCamera = async () => {
         try {
@@ -121,12 +369,21 @@ const ARMenuView = ({ menuId }) => {
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                await videoRef.current.play();
+                try {
+                    await videoRef.current.play();
+                } catch (playError) {
+                    if (playError.name === 'AbortError') {
+                        console.log('Video play was aborted, likely due to component unmount or navigation');
+                        return;
+                    }
+                    throw playError;
+                }
             }
             setCameraError(null);
         } catch (error) {
             console.error('Error accessing camera:', error);
             setCameraError('Unable to access camera. Please check permissions.');
+            stopCamera();
         }
     };
 
@@ -142,37 +399,112 @@ const ARMenuView = ({ menuId }) => {
     };
 
     useEffect(() => {
-        // Start camera when component mounts
-        startCamera();
+        let mounted = true;
 
-        // Clean up camera when component unmounts
+        const initCamera = async () => {
+            if (mounted) {
+                await startCamera();
+            }
+        };
+
+        initCamera();
+
         return () => {
+            mounted = false;
             stopCamera();
         };
     }, []);
 
+    const forceCleanupCamera = () => {
+        // Force stop all video tracks
+        if (videoRef.current && videoRef.current.srcObject) {
+            const tracks = videoRef.current.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        // Force cleanup stream reference
+        if (streamRef.current) {
+            const tracks = streamRef.current.getTracks();
+            tracks.forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        // Force cleanup any other active video streams
+        navigator.mediaDevices?.getUserMedia({ video: true })
+            .then(stream => {
+                stream.getTracks().forEach(track => track.stop());
+            })
+            .catch(() => { });
+    };
+
     const handleARButtonClick = async () => {
         const modelViewer = document.querySelector('model-viewer');
         if (modelViewer) {
-            // Stop the camera before activating AR
-            stopCamera();
-            setIsARMode(true);
             try {
+                // Force stop all camera streams
+                stopCamera();
+                forceCleanupCamera();
+
+                setIsARMode(true);
+
+                // Add event listeners for AR session state
+                modelViewer.addEventListener('ar-status', (event) => {
+                    if (event.detail.status === 'failed' || event.detail.status === 'not-presenting') {
+                        setIsARMode(false);
+                    }
+                }, { once: true });
+
+                modelViewer.addEventListener('ar-tracking', (event) => {
+                    if (event.detail.status === 'not-tracking') {
+                        setIsARMode(false);
+                    }
+                }, { once: true });
+
                 await modelViewer.activateAR();
             } catch (error) {
                 console.error('Error activating AR:', error);
-                // If AR fails, restart the camera
-                startCamera();
                 setIsARMode(false);
+                // Wait a bit before restarting camera to ensure cleanup is complete
+                setTimeout(() => {
+                    startCamera();
+                }, 500);
             }
         }
     };
 
     // Handle AR mode exit
     useEffect(() => {
+        let timeoutId;
+
         if (!isARMode) {
-            startCamera();
+            // Add a small delay before restarting camera
+            timeoutId = setTimeout(() => {
+                startCamera();
+            }, 500);
+        } else {
+            stopCamera();
+            forceCleanupCamera();
         }
+
+        return () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
+    }, [isARMode]);
+
+    // Add global event listener for AR session end
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && isARMode) {
+                setIsARMode(false);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [isARMode]);
 
     useEffect(() => {
@@ -187,46 +519,6 @@ const ARMenuView = ({ menuId }) => {
             }
         };
     }, []);
-
-    useEffect(() => {
-        fetchMenu();
-    }, [menuId]);
-
-    useEffect(() => {
-        // Filter items based on selected category
-        setFilteredItems(
-            selectedCategory === 'All'
-                ? menuItems
-                : menuItems.filter(item => item.category === selectedCategory)
-        );
-    }, [selectedCategory, menuItems]);
-
-    const fetchMenu = async () => {
-        try {
-            const menuData = await menuService.getMenu(menuId);
-            setMenu(menuData);
-
-            // Flatten menu items and extract categories
-            const items = menuData.categories?.flatMap(category =>
-                category.menuItems?.filter(item => item.status !== 'inactive' && item.modelInfo)
-                    .map(item => ({ ...item, category: category.name })) || []
-            ) || [];
-
-            // Extract unique categories
-            const uniqueCategories = ['All', ...new Set(items.map(item => item.category))];
-
-            setCategories(uniqueCategories);
-            setMenuItems(items);
-            setFilteredItems(items);
-            if (items.length > 0) {
-                setSelectedItem(items[0]);
-            }
-            setIsLoading(false);
-        } catch (error) {
-            console.error('Error fetching menu:', error);
-            setIsLoading(false);
-        }
-    };
 
     const checkScroll = () => {
         if (scrollContainerRef.current) {
@@ -320,6 +612,7 @@ const ARMenuView = ({ menuId }) => {
                     {selectedItem && selectedItem.modelInfo && (
                         <ModelViewer
                             item={selectedItem}
+                            menuId={menuId}
                             onClose={() => {
                                 setSelectedItem(null);
                                 setIsARMode(false);
@@ -399,6 +692,47 @@ const ARMenuView = ({ menuId }) => {
                 .pb-safe {
                     padding-bottom: env(safe-area-inset-bottom, 1rem);
                 }
+
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translateY(-10px); }
+                    10% { opacity: 1; transform: translateY(0); }
+                    90% { opacity: 1; transform: translateY(0); }
+                    100% { opacity: 0; transform: translateY(-10px); }
+                }
+
+                .animate-fade-in-out {
+                    animation: fadeInOut 2s ease-in-out;
+                }
+
+                /* Disable text selection and touch interactions */
+                main, button, div, h3, p, span {
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    user-select: none;
+                    -webkit-touch-callout: none;
+                }
+
+                /* Prevent default touch behaviors */
+                model-viewer {
+                    touch-action: pan-y pinch-zoom;
+                    -webkit-tap-highlight-color: transparent;
+                }
+
+                /* Disable iOS text size adjustment */
+                html {
+                    -webkit-text-size-adjust: none;
+                    text-size-adjust: none;
+                }
+
+                /* Prevent pull-to-refresh and overscroll behaviors */
+                body {
+                    overscroll-behavior: none;
+                    overflow: hidden;
+                    position: fixed;
+                    width: 100%;
+                    height: 100%;
+                }
             `}</style>
         </main>
     );
@@ -406,5 +740,51 @@ const ARMenuView = ({ menuId }) => {
 
 export default function ARMenuPage({ params }) {
     const { id } = React.use(params);
-    return <ARMenuView menuId={id} />;
+    return (
+        <>
+            <style jsx global>{`
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translateY(-10px); }
+                    10% { opacity: 1; transform: translateY(0); }
+                    90% { opacity: 1; transform: translateY(0); }
+                    100% { opacity: 0; transform: translateY(-10px); }
+                }
+
+                .animate-fade-in-out {
+                    animation: fadeInOut 2s ease-in-out;
+                }
+
+                /* Disable text selection and touch interactions */
+                main, button, div, h3, p, span {
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    user-select: none;
+                    -webkit-touch-callout: none;
+                }
+
+                /* Prevent default touch behaviors */
+                model-viewer {
+                    touch-action: pan-y pinch-zoom;
+                    -webkit-tap-highlight-color: transparent;
+                }
+
+                /* Disable iOS text size adjustment */
+                html {
+                    -webkit-text-size-adjust: none;
+                    text-size-adjust: none;
+                }
+
+                /* Prevent pull-to-refresh and overscroll behaviors */
+                body {
+                    overscroll-behavior: none;
+                    overflow: hidden;
+                    position: fixed;
+                    width: 100%;
+                    height: 100%;
+                }
+            `}</style>
+            <ARMenuView menuId={id} />
+        </>
+    );
 }
