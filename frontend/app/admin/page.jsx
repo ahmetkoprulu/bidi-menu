@@ -6,6 +6,7 @@ import { ChevronDownIcon, ChevronUpIcon, EllipsisVerticalIcon } from '@heroicons
 import { useRouter } from 'next/navigation';
 import Dropdown from '@/components/dropdowns/Dropdown';
 import { menuService } from '@/services/menu-service';
+import Navbar from '@/components/Navbar';
 
 export default function AdminPage() {
     const router = useRouter();
@@ -105,34 +106,48 @@ export default function AdminPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-100 p-8">
-                <div className="flex justify-center items-center h-64">
+            <>
+                <Navbar />
+                <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
                 </div>
-            </div>
+            </>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-100 p-8">
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                    <p>{error}</p>
+            <>
+                <Navbar />
+                <div className="p-6 max-w-7xl mx-auto">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+                        <p>{error}</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-2 text-sm font-medium text-red-600 hover:text-red-500"
+                        >
+                            Try Again
+                        </button>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 p-8">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
+        <>
+            <Navbar />
+            <div className="p-6 max-w-7xl mx-auto">
+                <div className="mb-8 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                        <p className="mt-2 text-gray-600">Manage your clients and their menus</p>
+                    </div>
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                     >
-                        Create Client
+                        Add Client
                     </button>
                 </div>
 
@@ -380,6 +395,6 @@ export default function AdminPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }

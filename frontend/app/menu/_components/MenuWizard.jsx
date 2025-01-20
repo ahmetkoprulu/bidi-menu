@@ -7,6 +7,8 @@ import GeneralStep from './wizard-steps/GeneralStep';
 import ItemsStep from './wizard-steps/ItemsStep';
 import CustomizationStep from './wizard-steps/CustomizationStep';
 import { menuService } from '@/services/menu-service';
+import { decodeJWT } from '@/lib/jwt';
+import { authService } from '@/services/auth-service';
 
 const steps = [
     { id: 'general', name: 'General', component: GeneralStep },
@@ -85,7 +87,17 @@ export default function MenuWizard({ id = null, clientId = null, initialData = n
         setLoading(true);
         try {
             await menuService.saveMenu(menu);
-            router.push('/admin');
+
+            // Get user role from token and redirect accordingly
+            const token = authService.getToken();
+            const decoded = decodeJWT(token);
+            const userRole = decoded?.roles?.[0];
+
+            if (userRole === 'admin') {
+                router.push('/admin');
+            } else {
+                router.push('/dashboard');
+            }
         } catch (error) {
             console.error('Error saving menu:', error);
         } finally {

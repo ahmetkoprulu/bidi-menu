@@ -66,6 +66,7 @@ func NewServer(
 	adminHandler := handlers.NewAdminHandler(adminService, clientService)
 	magicLinkHandler := handlers.NewMagicLinkHandler(magicLinkService, authService, clientService)
 	modelHandler := handlers.NewModelHandler(server.modelService, server.storageService)
+	dashboardHandler := handlers.NewDashboardHandler(db)
 
 	// Auth middleware
 	authMiddleware := middleware.AuthMiddleware(authService)
@@ -80,12 +81,14 @@ func NewServer(
 		authHandler.RegisterRoutes(v1)
 		adminHandler.RegisterRoutes(v1)
 		magicLinkHandler.RegisterRoutes(v1)
+
 		// Protected routes
 		protected := v1.Group("", authMiddleware)
 		{
 			clientHandler.RegisterRoutes(protected)
 			menuHandler.RegisterRoutes(protected, v1)
 			modelHandler.RegisterRoutes(protected)
+			dashboardHandler.RegisterRoutes(protected)
 		}
 	}
 

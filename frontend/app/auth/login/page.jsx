@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth-service";
+import { decodeJWT } from "@/lib/jwt";
 
 export default function LoginPage() {
     const [error, setError] = useState('');
@@ -26,11 +27,24 @@ export default function LoginPage() {
         setError('');
 
         try {
-            await authService.login({
+            const response = await authService.login({
                 email: formData.email,
                 password: formData.password,
             });
-            router.push('/dashboard');
+
+            // Store the token in localStorage
+            localStorage.setItem('token', response.token);
+
+            // Decode token to get user role and redirect accordingly
+            const decoded = decodeJWT(response.token);
+            const userRole = decoded?.roles?.[0];
+
+            // Redirect based on user role
+            if (userRole === 'admin') {
+                router.push('/admin/dashboard');
+            } else {
+                router.push('/dashboard');
+            }
         } catch (err) {
             setError(err.message);
         }
