@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ahmetkoprulu/bidi-menu/common/cache"
 	"github.com/ahmetkoprulu/bidi-menu/common/data"
 	"github.com/ahmetkoprulu/bidi-menu/common/utils"
 	"github.com/ahmetkoprulu/bidi-menu/internal/api"
@@ -55,11 +54,11 @@ func main() {
 	}
 	defer db.Close()
 
-	redis, err := cache.NewRedisCache(config.CacheURL, 0)
-	if err != nil {
-		utils.Logger.Fatal("Failed to connect to redis", utils.Logger.String("error", err.Error()))
-	}
-	defer redis.Close()
+	// redis, err := cache.NewRedisCache(config.CacheURL, 0)
+	// if err != nil {
+	// 	utils.Logger.Fatal("Failed to connect to redis", utils.Logger.String("error", err.Error()))
+	// }
+	// defer redis.Close()
 
 	// Initialize repositories
 	authRepo := repoImpl.NewAuthRepository(db)
