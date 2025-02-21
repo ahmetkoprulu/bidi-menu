@@ -25,8 +25,11 @@ func (r *modelRepository) CreateModel(ctx context.Context, model *models.Model) 
 		RETURNING id
 	`
 
-	id := uuid.New()
-	model.ID = &id
+	if model.ID == nil {
+		id := uuid.New()
+		model.ID = &id
+	}
+
 	err := r.db.QueryRow(ctx, query, model.ID, model.ClientID, model.Name, model.Thumbnail, model.GlbFile, model.UsdzFile).Scan(&model.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create model: %w", err)
@@ -67,7 +70,7 @@ func (r *modelRepository) GetModel(ctx context.Context, modelID uuid.UUID) (mode
 }
 
 func (r *modelRepository) GetModels(ctx context.Context, clientID uuid.UUID) ([]models.Model, error) {
-	var ms []models.Model
+	var ms []models.Model = make([]models.Model, 0)
 	query := `
 		SELECT id, client_id, name, thumbnail, glb_file, usdz_file
 		FROM models

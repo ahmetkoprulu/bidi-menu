@@ -36,7 +36,7 @@ func (r *menuRepository) DeleteMenu(ctx context.Context, id uuid.UUID) error {
 func (r *menuRepository) GetMenuById(ctx context.Context, id uuid.UUID) (*models.Menu, error) {
 	query := `
 		WITH menu_data AS (
-			SELECT id, client_id, label, description, status, categories
+			SELECT id, client_id, label, description, status, categories, customization
 			FROM menus
 			WHERE id = $1
 		),
@@ -59,7 +59,7 @@ func (r *menuRepository) GetMenuById(ctx context.Context, id uuid.UUID) (*models
 			LEFT JOIN LATERAL jsonb_array_elements(md.categories::jsonb) as cat ON true
 			LEFT JOIN LATERAL jsonb_array_elements(cat->'menuItems') as items ON true
 			LEFT JOIN models m ON m.id::text = items->>'modelId'
-			GROUP BY md.id, md.client_id, md.label, md.description, md.status, md.categories
+			GROUP BY md.id, md.client_id, md.label, md.description, md.status, md.categories, md.customization
 		)
 		SELECT 
 			id, client_id, label, description, status,
@@ -67,12 +67,13 @@ func (r *menuRepository) GetMenuById(ctx context.Context, id uuid.UUID) (*models
 				WHEN categories IS NULL THEN '[]'::jsonb
 				ELSE categories::jsonb
 			END as categories,
-			COALESCE(model_list, '[]'::jsonb) as models
+			COALESCE(model_list, '[]'::jsonb) as models,
+			COALESCE(customization, '[]'::jsonb) as customization
 		FROM menu_with_models
 	`
 
 	var menu models.Menu
-	var categoriesJSON, modelsJSON []byte
+	var categoriesJSON, modelsJSON, customizationJSON []byte
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&menu.ID,
 		&menu.ClientID,
@@ -81,6 +82,7 @@ func (r *menuRepository) GetMenuById(ctx context.Context, id uuid.UUID) (*models
 		&menu.Status,
 		&categoriesJSON,
 		&modelsJSON,
+		&customizationJSON,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get menu: %w", err)
@@ -106,6 +108,12 @@ func (r *menuRepository) GetMenuById(ctx context.Context, id uuid.UUID) (*models
 		return nil, fmt.Errorf("failed to parse categories: %w", err)
 	}
 
+	// Parse customization
+	var customization *models.MenuCustomization
+	if err := json.Unmarshal(customizationJSON, &customization); err != nil {
+		return nil, fmt.Errorf("failed to parse customization: %w", err)
+	}
+
 	// Update menu items with model information
 	for _, category := range categories {
 		for _, item := range category.MenuItems {
@@ -119,19 +127,20 @@ func (r *menuRepository) GetMenuById(ctx context.Context, id uuid.UUID) (*models
 	}
 
 	menu.Categories = categories
+	menu.Customization = customization
 	return &menu, nil
 }
 
 func (r *menuRepository) CreateMenu(ctx context.Context, menu *models.Menu) (uuid.UUID, error) {
 	query := `
-		INSERT INTO menus (id, client_id, label, description, status, categories)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO menus (id, client_id, label, description, status, categories, customization)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
 	`
 
 	id := uuid.New()
 	menu.ID = &id
-	err := r.db.QueryRow(ctx, query, menu.ID, menu.ClientID, menu.Label, menu.Description, menu.Status, menu.Categories).Scan(&menu.ID)
+	err := r.db.QueryRow(ctx, query, menu.ID, menu.ClientID, menu.Label, menu.Description, menu.Status, menu.Categories, menu.Customization).Scan(&menu.ID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to create menu: %w", err)
 	}
@@ -142,11 +151,11 @@ func (r *menuRepository) CreateMenu(ctx context.Context, menu *models.Menu) (uui
 func (r *menuRepository) UpdateMenu(ctx context.Context, menu *models.Menu) error {
 	query := `
 		UPDATE menus
-		SET label = $2, description = $3, status = $4, categories = $5
+		SET label = $2, description = $3, status = $4, categories = $5, customization = $6
 		WHERE id = $1
 	`
 
-	_, err := r.db.Exec(ctx, query, menu.ID, menu.Label, menu.Description, menu.Status, menu.Categories)
+	_, err := r.db.Exec(ctx, query, menu.ID, menu.Label, menu.Description, menu.Status, menu.Categories, menu.Customization)
 	if err != nil {
 		return fmt.Errorf("failed to update menu: %w", err)
 	}
@@ -447,6 +456,51 @@ func (r *menuRepository) UpdateItemsStatus(ctx context.Context, itemIDs []uuid.U
 	rowsAffected := result.RowsAffected()
 	if rowsAffected == 0 {
 		return fmt.Errorf("no items found")
+	}
+
+	return nil
+}
+
+func (r *menuRepository) RemoveModelFromMenuItems(ctx context.Context, modelID uuid.UUID) error {
+	query := `
+		UPDATE menus
+		SET categories = (
+			SELECT jsonb_agg(
+				CASE
+					WHEN c->'menuItems' @> ANY(ARRAY[jsonb_build_object('modelId', $1::text)])
+					THEN jsonb_set(
+						c,
+						'{menuItems}',
+						(
+							SELECT jsonb_agg(
+								CASE
+									WHEN i->>'modelId' = $1::text
+									THEN jsonb_set(
+										jsonb_set(
+											i,
+											'{modelId}',
+											'null'
+										),
+										'{modelInfo}',
+										'null'
+									)
+									ELSE i
+								END
+							)
+							FROM jsonb_array_elements(c->'menuItems') i
+						)
+					)
+					ELSE c
+				END
+			)
+			FROM jsonb_array_elements(categories) c
+		)
+		WHERE categories @> ANY(ARRAY[jsonb_build_object('menuItems', jsonb_build_array(jsonb_build_object('modelId', $1::text)))])
+	`
+
+	_, err := r.db.Exec(ctx, query, modelID)
+	if err != nil {
+		return fmt.Errorf("failed to remove model from menu items: %w", err)
 	}
 
 	return nil

@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://192.168.1.37:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:8000/api/v1';
 import base from './base';
 
 class ModelService {
@@ -43,14 +43,12 @@ class ModelService {
     async createModel(clientId, data) {
         try {
             const formData = new FormData();
-            console.log(data);
             formData.append('name', data.name);
             formData.append('glb', data.glbFile);
             formData.append('usdz', data.usdzFile);
             formData.append('thumbnail', data.thumbnail);
             formData.append('clientId', clientId);
-            console.log(formData);
-            console.log(base.getToken());
+
             const response = await fetch(`${API_BASE_URL}/model`, {
                 method: 'POST',
                 body: formData,
@@ -66,6 +64,27 @@ class ModelService {
             return await response.json();
         } catch (error) {
             console.error('Error creating model:', error);
+            throw error;
+        }
+    }
+
+    async deleteModel(modelId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/model/${modelId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${base.getToken()}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.message || 'Failed to delete model');
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error deleting model:', error);
             throw error;
         }
     }

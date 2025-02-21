@@ -38,9 +38,9 @@ CREATE TABLE models (
     id UUID PRIMARY KEY,
     client_id UUID NOT NULL REFERENCES clients(id),
     name VARCHAR(255) NOT NULL,
-    glb_file_path TEXT NOT NULL,
-    usdz_file_path TEXT NOT NULL,
-    thumbnail_path TEXT NOT NULL,
+    glb_file TEXT NOT NULL,
+    usdz_file TEXT NOT NULL,
+    thumbnail TEXT NOT NULL,
     status model_status NOT NULL DEFAULT 'active',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP

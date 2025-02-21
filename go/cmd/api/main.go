@@ -85,6 +85,7 @@ func main() {
 		adminService,
 		magicLinkService,
 		db,
+		config,
 	)
 
 	// Start server in a goroutine

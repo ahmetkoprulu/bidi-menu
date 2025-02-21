@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	// _ "github.com/ahmetkoprulu/bidi-menu/docs"
 	"github.com/ahmetkoprulu/bidi-menu/internal/api/handlers"
 	"github.com/ahmetkoprulu/bidi-menu/internal/api/middleware"
+	"github.com/ahmetkoprulu/bidi-menu/internal/models"
 	"github.com/ahmetkoprulu/bidi-menu/internal/services"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -38,7 +40,13 @@ func NewServer(
 	adminService services.AdminService,
 	magicLinkService services.MagicLinkService,
 	db *data.PgDbContext,
+	config *models.Config,
 ) *Server {
+	storageService, err := storage.NewSpacesService(config.SpacesConfig)
+	if err != nil {
+		log.Fatalf("Failed to create storage service: %v", err)
+	}
+
 	server := &Server{
 		router:           gin.Default(),
 		authService:      authService,
@@ -47,7 +55,7 @@ func NewServer(
 		modelService:     modelService,
 		adminService:     adminService,
 		magicLinkService: magicLinkService,
-		storageService:   storage.NewStorageService(),
+		storageService:   storageService,
 		db:               db,
 	}
 
@@ -65,7 +73,7 @@ func NewServer(
 	healthHandler := handlers.NewHealthHandler()
 	adminHandler := handlers.NewAdminHandler(adminService, clientService)
 	magicLinkHandler := handlers.NewMagicLinkHandler(magicLinkService, authService, clientService)
-	modelHandler := handlers.NewModelHandler(server.modelService, server.storageService)
+	modelHandler := handlers.NewModelHandler(server.modelService, server.menuService, server.storageService)
 	dashboardHandler := handlers.NewDashboardHandler(db)
 
 	// Auth middleware
@@ -107,8 +115,8 @@ func (s *Server) Start(addr string) error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// return s.httpServer.ListenAndServeTLS("./ssl/cert.pem", "./ssl/key.pem")
-	return s.httpServer.ListenAndServe()
+	return s.httpServer.ListenAndServeTLS("./ssl/cert.pem", "./ssl/key.pem")
+	// return s.httpServer.ListenAndServe()
 }
 
 func (s *Server) Router() *gin.Engine {

@@ -15,12 +15,14 @@ import (
 
 type ModelHandler struct {
 	modelService   services.ModelService
+	menuService    services.MenuService
 	storageService storage.StorageService
 }
 
-func NewModelHandler(modelService services.ModelService, storageService storage.StorageService) *ModelHandler {
+func NewModelHandler(modelService services.ModelService, menuService services.MenuService, storageService storage.StorageService) *ModelHandler {
 	return &ModelHandler{
 		modelService:   modelService,
+		menuService:    menuService,
 		storageService: storageService,
 	}
 }
@@ -33,6 +35,7 @@ func (h *ModelHandler) RegisterRoutes(router *gin.RouterGroup) {
 		model.GET("", h.GetModel)
 		model.GET("/list", h.GetModels)
 		model.GET("/:id", h.GetModelById)
+		model.DELETE("/:id", h.DeleteModel)
 	}
 }
 
@@ -156,4 +159,58 @@ func (h *ModelHandler) GetModels(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, models)
+}
+
+func (h *ModelHandler) DeleteModel(c *gin.Context) {
+	clientID := c.MustGet(middleware.ClientIDKey).(uuid.UUID)
+	roles := c.MustGet(middleware.UserRoleKey).([]string)
+	id := c.Param("id")
+
+	// Parse model ID
+	modelID, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid model ID"})
+		return
+	}
+
+	// Get model to check ownership
+	model, err := h.modelService.GetModelById(c.Request.Context(), modelID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "Model not found"})
+		return
+	}
+
+	// Check authorization
+	if !slices.Contains(roles, "admin") && clientID != model.ClientID {
+		c.JSON(http.StatusForbidden, ErrorResponse{Error: "You are not authorized to delete this model"})
+		return
+	}
+
+	// Delete model files first
+	if err := h.storageService.DeleteGlbModel(modelID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete GLB file"})
+		return
+	}
+	if err := h.storageService.DeleteUsdzModel(modelID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete USDZ file"})
+		return
+	}
+	if err := h.storageService.DeleteThumbnail(modelID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete thumbnail"})
+		return
+	}
+
+	// Delete model from menu
+	if err := h.menuService.RemoveModelFromMenuItems(context.Background(), modelID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete model from menu"})
+		return
+	}
+
+	// Delete model from database
+	if err := h.modelService.DeleteModel(c.Request.Context(), modelID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete model"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

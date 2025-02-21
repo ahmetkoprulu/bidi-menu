@@ -12,6 +12,7 @@ type Config struct {
 	BaseUrl       string
 	TesseractPath string
 	EmailConfig   EmailConfig
+	SpacesConfig  SpacesConfig
 }
 
 type EmailConfig struct {
@@ -20,4 +21,13 @@ type EmailConfig struct {
 	SMTPUsername string
 	SMTPPassword string
 	FromEmail    string
+}
+
+type SpacesConfig struct {
+	Region          string
+	Bucket          string
+	Endpoint        string
+	AccessKeyID     string
+	SecretAccessKey string
+	CDNDomain       string
 }

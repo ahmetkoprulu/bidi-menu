@@ -13,4 +13,5 @@ type MenuService interface {
 	GetMenu(ctx context.Context, clientID uuid.UUID) ([]*models.MenuCategory, error)
 	GetMenuById(ctx context.Context, id uuid.UUID) (*models.Menu, error)
 	DeleteMenu(ctx context.Context, id uuid.UUID) error
+	RemoveModelFromMenuItems(ctx context.Context, modelID uuid.UUID) error
 }

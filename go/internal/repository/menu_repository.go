@@ -21,4 +21,5 @@ type MenuRepository interface {
 	ReorderCategories(ctx context.Context, categoryOrders map[uuid.UUID]int) error
 	UpdateCategoryStatus(ctx context.Context, categoryID uuid.UUID, status models.MenuStatus) error
 	UpdateItemsStatus(ctx context.Context, itemIDs []uuid.UUID, status models.MenuStatus) error
+	RemoveModelFromMenuItems(ctx context.Context, modelID uuid.UUID) error
 }

@@ -22,22 +22,14 @@ const defaultMenu = {
     status: 'active',
     categories: [],
     customization: {
-        colors: {
-            primary: '#000000',
-            secondary: '#ffffff',
-            text: '#000000',
-            background: '#ffffff',
-            price: '#000000',
-            heading: '#000000',
-            description: '#666666',
-            headerText: '#000000'
-        },
-        font: {
-            heading: 'Arial',
-            body: 'Arial',
-            spacing: 1
-        },
-        itemStyle: 'grid'
+        qrCode: {
+            size: 200,
+            errorCorrection: 'M',
+            logoSize: 40,
+            logoColor: '#000000',
+            qrColor: '#000000',
+            backgroundColor: '#FFFFFF'
+        }
     }
 };
 
@@ -68,7 +60,11 @@ export default function MenuWizard({ id = null, clientId = null, initialData = n
                 })) || [],
                 customization: {
                     ...defaultMenu.customization,
-                    ...(initialData.customization || {})
+                    ...(initialData.customization || {}),
+                    qrCode: {
+                        ...defaultMenu.customization.qrCode,
+                        ...(initialData.customization?.qrCode || {})
+                    }
                 }
             };
             setMenu(mappedMenu);

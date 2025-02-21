@@ -141,3 +141,12 @@ func (s *menuService) UpdateItemsStatus(ctx context.Context, itemIDs []uuid.UUID
 
 	return nil
 }
+
+func (s *menuService) RemoveModelFromMenuItems(ctx context.Context, modelID uuid.UUID) error {
+	err := s.menuRepo.RemoveModelFromMenuItems(ctx, modelID)
+	if err != nil {
+		return fmt.Errorf("failed to remove model from menu items: %w", err)
+	}
+
+	return nil
+}

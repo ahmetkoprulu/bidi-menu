@@ -242,7 +242,7 @@ func (r *clientRepository) GetClientsWithMenus(ctx context.Context, page, pageSi
 		SELECT 
 			c.id, c.name, c.email, c.phone, c.status, c.trial_end_date,
 			c.address, c.city, c.country, c.timezone, c.logo, c.created_at, c.updated_at,
-			m.id, m.label, m.description, m.status, m.qr_code, m.created_at, m.categories
+			m.id, m.label, m.description, m.status, m.qr_code, m.created_at, m.categories, m.customization
 		FROM clients c
 		LEFT JOIN menus m ON c.id = m.client_id
 		ORDER BY c.created_at DESC
@@ -264,11 +264,12 @@ func (r *clientRepository) GetClientsWithMenus(ctx context.Context, page, pageSi
 		var address, city, country, timezone, logo sql.NullString
 		var createdAt, updatedAt time.Time
 		var menuCategories sql.NullString
+		var menuCustomization sql.NullString
 		err := rows.Scan(
 			&client.ID, &client.Name, &client.Email, &client.Phone,
 			&client.Status, &trialEndDate, &address, &city, &country,
 			&timezone, &logo, &createdAt, &updatedAt,
-			&menuID, &menuLabel, &menuDesc, &menuStatus, &menuQR, &menuCreatedAt, &menuCategories,
+			&menuID, &menuLabel, &menuDesc, &menuStatus, &menuQR, &menuCreatedAt, &menuCategories, &menuCustomization,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan client with menu: %w", err)
@@ -308,18 +309,23 @@ func (r *clientRepository) GetClientsWithMenus(ctx context.Context, page, pageSi
 		if menuCategories.Valid {
 			json.Unmarshal([]byte(menuCategories.String), &categories)
 		}
+		var customization *models.MenuCustomization
+		if menuCustomization.Valid {
+			json.Unmarshal([]byte(menuCustomization.String), &customization)
+		}
 		// Add menu if it exists
 		if menuID.Valid {
 			menuID := uuid.MustParse(menuID.String)
 			menu := &models.Menu{
-				ID:          &menuID,
-				Label:       menuLabel.String,
-				Description: menuDesc.String,
-				Status:      menuStatus.String,
-				QRCode:      menuQR.String,
-				CreatedAt:   menuCreatedAt.Time.Format(time.RFC3339),
-				Categories:  categories,
-				ClientID:    client.ID,
+				ID:            &menuID,
+				Label:         menuLabel.String,
+				Description:   menuDesc.String,
+				Status:        menuStatus.String,
+				QRCode:        menuQR.String,
+				CreatedAt:     menuCreatedAt.Time.Format(time.RFC3339),
+				Categories:    categories,
+				ClientID:      client.ID,
+				Customization: customization,
 			}
 			existingClient.Menus = append(existingClient.Menus, menu)
 		}

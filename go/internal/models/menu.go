@@ -5,23 +5,21 @@ import (
 )
 
 type Menu struct {
-	ID                *uuid.UUID         `json:"id" pg:"id"`
-	Label             string             `json:"label" pg:"label"`
-	Description       string             `json:"description" pg:"description"`
-	ClientID          uuid.UUID          `json:"clientID" pg:"client_id"`
-	Status            string             `json:"status" pg:"status"`
-	Categories        []*MenuCategory    `json:"categories,omitempty" pg:"categories"`
-	MenuCustomization *MenuCustomization `json:"customization,omitempty" pg:"menu_customization"`
-	QRCutomization    *QRCutomization    `json:"qrCustomization,omitempty" pg:"qr_customization"`
-	QRCode            string             `json:"qrCode,omitempty" pg:"qr_code"`
-	CreatedAt         string             `json:"createdAt" pg:"created_at"`
-	UpdatedAt         string             `json:"updatedAt" pg:"updated_at"`
+	ID             *uuid.UUID         `json:"id" pg:"id"`
+	Label          string             `json:"label" pg:"label"`
+	Description    string             `json:"description" pg:"description"`
+	ClientID       uuid.UUID          `json:"clientID" pg:"client_id"`
+	Status         string             `json:"status" pg:"status"`
+	Categories     []*MenuCategory    `json:"categories,omitempty" pg:"categories"`
+	Customization  *MenuCustomization `json:"customization,omitempty" pg:"customization"`
+	QRCutomization *QRCutomization    `json:"qrCustomization,omitempty" pg:"qr_customization"`
+	QRCode         string             `json:"qrCode,omitempty" pg:"qr_code"`
+	CreatedAt      string             `json:"createdAt" pg:"created_at"`
+	UpdatedAt      string             `json:"updatedAt" pg:"updated_at"`
 }
 
 type MenuCustomization struct {
-	Colors    Colors `json:"colors"`
-	Font      Font   `json:"font"`
-	ItemStyle string `json:"itemStyle"`
+	QRCode *QRCutomization `json:"qrCode,omitempty"`
 }
 
 type Colors struct {
@@ -42,9 +40,12 @@ type Font struct {
 }
 
 type QRCutomization struct {
-	PrimaryColor    string `json:"primaryColor"`
-	BackgroundColor string `json:"backgroundColor"`
 	Size            int    `json:"size"`
+	ErrorCorrection string `json:"errorCorrection"`
+	LogoSize        int    `json:"logoSize"`
+	LogoColor       string `json:"logoColor"`
+	QRColor         string `json:"qrColor"`
+	BackgroundColor string `json:"backgroundColor"`
 }
 
 type MenuCategory struct {

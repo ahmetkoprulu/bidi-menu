@@ -7,6 +7,7 @@ import { XMarkIcon, CubeTransparentIcon } from '@heroicons/react/24/outline';
 import Script from 'next/script';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
+const CDN_DOMAIN = process.env.NEXT_PUBLIC_CDN_DOMAIN || '';
 
 export default function ModelSelect({ value, selectedModel, onChange, clientId, className }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -133,7 +134,11 @@ export default function ModelSelect({ value, selectedModel, onChange, clientId, 
             {selectedModel ? (
                 <div className="relative w-24 h-24 rounded-lg border border-gray-200 overflow-hidden group">
                     <img
-                        src={selectedModel.thumbnail ? `${BASE_URL}${selectedModel.thumbnail}.png` : '/placeholder-model.png'}
+                        src={selectedModel.thumbnail
+                            ? (CDN_DOMAIN
+                                ? `${CDN_DOMAIN}/${selectedModel.thumbnail}`
+                                : `${BASE_URL}${selectedModel.thumbnail}.png`)
+                            : '/placeholder-model.png'}
                         alt={selectedModel.name}
                         className="w-full h-full object-cover"
                     />
@@ -302,7 +307,11 @@ export default function ModelSelect({ value, selectedModel, onChange, clientId, 
                                     >
                                         <div className="aspect-square rounded-lg border border-gray-200 overflow-hidden">
                                             <img
-                                                src={model.thumbnail ? `${BASE_URL}${model.thumbnail}.png` : '/placeholder-model.png'}
+                                                src={model.thumbnail
+                                                    ? (CDN_DOMAIN
+                                                        ? `${CDN_DOMAIN}/${model.thumbnail}`
+                                                        : `${BASE_URL}${model.thumbnail}.png`)
+                                                    : '/placeholder-model.png'}
                                                 alt={model.name}
                                                 className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
                                             />

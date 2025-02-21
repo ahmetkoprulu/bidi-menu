@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { menuService } from '@/services/menu-service';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
+const CDN_DOMAIN = process.env.NEXT_PUBLIC_CDN_DOMAIN || '';
 
 // Cache for loaded models
 const modelCache = new Map();
@@ -18,9 +19,10 @@ const ModelViewer = ({ item, menuId, onClose }) => {
 
     if (!item?.modelInfo) return null;
 
-    const glbUrl = `${API_URL}${item.modelInfo.glbFile}.glb`;
-    const usdzUrl = `${API_URL}${item.modelInfo.usdzFile}.usdz`;
-    const thumbnailUrl = `${API_URL}${item.modelInfo.thumbnail}.png`;
+    // Use CDN URLs if available, fallback to API URLs
+    const glbUrl = CDN_DOMAIN ? `${CDN_DOMAIN}/${item.modelInfo.glbFile}` : `${API_URL}${item.modelInfo.glbFile}.glb`;
+    const usdzUrl = CDN_DOMAIN ? `${CDN_DOMAIN}/${item.modelInfo.usdzFile}` : `${API_URL}${item.modelInfo.usdzFile}.usdz`;
+    const thumbnailUrl = CDN_DOMAIN ? `${CDN_DOMAIN}/${item.modelInfo.thumbnail}` : `${API_URL}${item.modelInfo.thumbnail}.png`;
 
     useEffect(() => {
         // Reset states when item changes

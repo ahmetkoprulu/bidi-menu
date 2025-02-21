@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Dropdown from '@/components/dropdowns/Dropdown';
 import { menuService } from '@/services/menu-service';
 import Navbar from '@/components/Navbar';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function AdminPage() {
     const router = useRouter();
@@ -102,6 +103,10 @@ export default function AdminPage() {
                 setError(err.message);
             }
         }
+    };
+
+    const handleViewModels = (clientId) => {
+        router.push(`/admin/models?clientId=${clientId}`);
     };
 
     if (loading) {
@@ -219,6 +224,10 @@ export default function AdminPage() {
                                                             onClick: () => handleCreateMenu(client.id),
                                                         },
                                                         {
+                                                            label: 'Models',
+                                                            onClick: () => handleViewModels(client.id),
+                                                        },
+                                                        {
                                                             label: 'Edit Client',
                                                             onClick: () => handleEditClient(client.id),
                                                         },
@@ -294,6 +303,63 @@ export default function AdminPage() {
                                                                     ) : (
                                                                         <p className="text-gray-500">No categories available</p>
                                                                     )}
+                                                                    <div className="mt-4 flex justify-end">
+                                                                        <div className="flex flex-col items-end">
+                                                                            <QRCodeSVG
+                                                                                id={`qr-${menu.id}`}
+                                                                                value={`${window.location.origin}/menu/view/${menu.id}`}
+                                                                                size={menu.customization?.qrCode?.size || 200}
+                                                                                level={menu.customization?.qrCode?.errorCorrection || 'M'}
+                                                                                includeMargin={true}
+                                                                                bgColor={menu.customization?.qrCode?.backgroundColor || '#FFFFFF'}
+                                                                                fgColor={menu.customization?.qrCode?.qrColor || '#000000'}
+                                                                                imageSettings={{
+                                                                                    src: `data:image/svg+xml;utf8,${encodeURIComponent(
+                                                                                        '<svg xmlns="http://www.w3.org/2000/svg" ' +
+                                                                                        `width="${menu.customization?.qrCode?.logoSize || 40}" ` +
+                                                                                        `height="${menu.customization?.qrCode?.logoSize || 40}">` +
+                                                                                        `<rect width="${menu.customization?.qrCode?.logoSize || 40}" ` +
+                                                                                        `height="${menu.customization?.qrCode?.logoSize || 40}" ` +
+                                                                                        `fill="${menu.customization?.qrCode?.backgroundColor || '#FFFFFF'}"/>` +
+                                                                                        '<text x="50%" y="50%" text-anchor="middle" dy=".35em" ' +
+                                                                                        `fill="${menu.customization?.qrCode?.logoColor || '#000000'}" ` +
+                                                                                        `font-family="Arial" font-weight="bold" font-size="${(menu.customization?.qrCode?.logoSize || 40) * 0.45}">AR</text>` +
+                                                                                        '</svg>'
+                                                                                    )}`,
+                                                                                    height: menu.customization?.qrCode?.logoSize || 40,
+                                                                                    width: menu.customization?.qrCode?.logoSize || 40,
+                                                                                    excavate: true
+                                                                                }}
+                                                                                style={{
+                                                                                    maxWidth: '100%',
+                                                                                    height: 'auto'
+                                                                                }}
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    const svg = document.querySelector(`#qr-${menu.id}`);
+                                                                                    const svgData = new XMLSerializer().serializeToString(svg);
+                                                                                    const canvas = document.createElement('canvas');
+                                                                                    const ctx = canvas.getContext('2d');
+                                                                                    const img = new Image();
+                                                                                    img.onload = () => {
+                                                                                        canvas.width = img.width;
+                                                                                        canvas.height = img.height;
+                                                                                        ctx.drawImage(img, 0, 0);
+                                                                                        const pngFile = canvas.toDataURL('image/png');
+                                                                                        const downloadLink = document.createElement('a');
+                                                                                        downloadLink.download = `menu-${menu.id}-qr.png`;
+                                                                                        downloadLink.href = pngFile;
+                                                                                        downloadLink.click();
+                                                                                    };
+                                                                                    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+                                                                                }}
+                                                                                className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                                                                            >
+                                                                                Download QR Code
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             ))
                                                         ) : (

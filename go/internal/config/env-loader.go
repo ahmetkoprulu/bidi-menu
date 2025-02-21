@@ -28,5 +28,13 @@ func LoadEnvironment() *models.Config {
 			SMTPPassword: os.Getenv("SMTP_PASSWORD"),
 			FromEmail:    os.Getenv("FROM_EMAIL"),
 		},
+		SpacesConfig: models.SpacesConfig{
+			Region:          os.Getenv("SPACES_REGION"),
+			Bucket:          os.Getenv("SPACES_BUCKET"),
+			Endpoint:        os.Getenv("SPACES_ENDPOINT"),
+			AccessKeyID:     os.Getenv("SPACES_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("SPACES_SECRET_ACCESS_KEY"),
+			CDNDomain:       os.Getenv("SPACES_CDN_DOMAIN"),
+		},
 	}
 }
