@@ -15,6 +15,7 @@ const ModelViewer = ({ item, menuId, onClose }) => {
     const [loadingProgress, setLoadingProgress] = useState(0);
     const [loadError, setLoadError] = useState(null);
     const [showShareSuccess, setShowShareSuccess] = useState(false);
+    const [isARMode, setIsARMode] = useState(false);
     const modelKey = `${item?.id}-${item?.modelInfo?.glbFile}`;
 
     if (!item?.modelInfo) return null;
@@ -25,114 +26,90 @@ const ModelViewer = ({ item, menuId, onClose }) => {
     const thumbnailUrl = CDN_DOMAIN ? `${CDN_DOMAIN}/${item.modelInfo.thumbnail}` : `${API_URL}${item.modelInfo.thumbnail}.png`;
 
     useEffect(() => {
-        // Reset states when item changes
+        let mounted = true;
+
+        const setupModelViewer = () => {
+            const modelViewer = modelRef.current;
+            if (!modelViewer) return;
+
+            const handleProgress = (event) => {
+                if (!mounted) return;
+                const progress = event.detail.totalProgress * 100;
+                setLoadingProgress(progress);
+                console.log('Loading progress:', progress);
+            };
+
+            const handleLoad = () => {
+                if (!mounted) return;
+                console.log('Model loaded successfully');
+                setIsLoading(false);
+                setLoadError(null);
+            };
+
+            const handleError = (error) => {
+                if (!mounted) return;
+                console.error('Error loading model:', error);
+                setLoadError('Failed to load model');
+                setIsLoading(false);
+            };
+
+            // Clean up existing listeners first
+            modelViewer.removeEventListener('progress', handleProgress);
+            modelViewer.removeEventListener('load', handleLoad);
+            modelViewer.removeEventListener('error', handleError);
+
+            // Add new listeners
+            modelViewer.addEventListener('progress', handleProgress);
+            modelViewer.addEventListener('load', handleLoad);
+            modelViewer.addEventListener('error', handleError);
+
+            // Force a load attempt
+            if (modelViewer.src !== glbUrl) {
+                modelViewer.src = glbUrl;
+            }
+
+            return () => {
+                if (modelViewer) {
+                    modelViewer.removeEventListener('progress', handleProgress);
+                    modelViewer.removeEventListener('load', handleLoad);
+                    modelViewer.removeEventListener('error', handleError);
+                }
+            };
+        };
+
+        const cleanup = setupModelViewer();
+
+        return () => {
+            mounted = false;
+            if (cleanup) cleanup();
+        };
+    }, [glbUrl]);
+
+    // Reset loading state when model changes
+    useEffect(() => {
         setIsLoading(true);
         setLoadingProgress(0);
         setLoadError(null);
-
-        // Check if model is already cached
-        if (modelCache.has(modelKey)) {
-            console.log('Using cached model:', modelKey);
-            setIsLoading(false);
-            setLoadingProgress(100);
-            return;
-        }
-
-        // Add event listeners
-        const modelViewer = modelRef.current;
-        if (modelViewer) {
-            modelViewer.addEventListener('progress', handleProgress);
-            modelViewer.addEventListener('load', handleModelLoad);
-            modelViewer.addEventListener('error', handleError);
-
-            // Preload the model
-            const preloadLink = document.createElement('link');
-            preloadLink.rel = 'preload';
-            preloadLink.as = 'fetch';
-            preloadLink.href = glbUrl;
-            document.head.appendChild(preloadLink);
-
-            // Cache headers for better browser caching
-            fetch(glbUrl, {
-                method: 'HEAD',
-                headers: {
-                    'Cache-Control': 'max-age=31536000',
-                },
-            }).catch(console.error);
-        }
-
-        return () => {
-            // Clean up event listeners
-            if (modelViewer) {
-                modelViewer.removeEventListener('progress', handleProgress);
-                modelViewer.removeEventListener('load', handleModelLoad);
-                modelViewer.removeEventListener('error', handleError);
-            }
-        };
-    }, [modelKey, glbUrl]);
-
-    const handleModelLoad = () => {
-        setIsLoading(false);
-        setLoadingProgress(100);
-        // Cache the loaded model
-        modelCache.set(modelKey, true);
-        console.log('Model loaded and cached:', modelKey);
-    };
-
-    const handleProgress = (event) => {
-        const progress = event.detail?.totalProgress || 0;
-        const percentage = Math.round(progress * 100);
-        console.log('Loading progress:', percentage);
-        setLoadingProgress(percentage);
-    };
-
-    const handleError = (error) => {
-        setIsLoading(false);
-        setLoadError('Error loading 3D model');
-        console.error('Error loading model:', error);
-        // Remove from cache if loading failed
-        modelCache.delete(modelKey);
-    };
+    }, [item?.id]);
 
     const handleShare = async () => {
-        const shareUrl = `${window.location.origin}/menu/view/${menuId}?item=${item.id}`;
-        const shareData = {
-            title: `${item.name} - AR Menu`,
-            text: `Check out ${item.name} in 3D on our interactive AR menu! You can view it in augmented reality.`,
-            url: shareUrl,
-        };
+        const shareUrl = `${window.location.origin}${window.location.pathname}?item=${item.id}`;
 
         try {
-            if (navigator.share && !navigator.userAgent.includes('WhatsApp')) {
-                // Use Web Share API for most platforms
-                await navigator.share(shareData);
+            if (navigator.share) {
+                await navigator.share({
+                    title: item.name,
+                    text: `Check out ${item.name} in 3D!`,
+                    url: shareUrl
+                });
             } else {
-                // For WhatsApp and fallback
-                const whatsappText = encodeURIComponent(`${shareData.text}\n${shareUrl}`);
-
-                if (navigator.userAgent.includes('WhatsApp')) {
-                    // If inside WhatsApp webview, just copy the link
-                    await navigator.clipboard.writeText(shareUrl);
-                    setShowShareSuccess(true);
-                    setTimeout(() => setShowShareSuccess(false), 2000);
-                } else {
-                    // Try to open WhatsApp if available
-                    const whatsappUrl = `whatsapp://send?text=${whatsappText}`;
-                    window.location.href = whatsappUrl;
-
-                    // Fallback to web WhatsApp after a short delay if mobile WhatsApp doesn't open
-                    setTimeout(() => {
-                        if (document.hidden) return; // Don't redirect if WhatsApp opened
-                        window.open(`https://wa.me/?text=${whatsappText}`, '_blank');
-                    }, 300);
-                }
+                // Fallback to copying the URL
+                await navigator.clipboard.writeText(shareUrl);
+                setShowShareSuccess(true);
+                setTimeout(() => setShowShareSuccess(false), 2000);
             }
         } catch (error) {
             console.error('Error sharing:', error);
-            // Fallback to copying the URL
-            await navigator.clipboard.writeText(shareUrl);
-            setShowShareSuccess(true);
-            setTimeout(() => setShowShareSuccess(false), 2000);
         }
     };
 
@@ -163,61 +140,31 @@ const ModelViewer = ({ item, menuId, onClose }) => {
                 src={glbUrl}
                 ios-src={usdzUrl}
                 poster={thumbnailUrl}
-                ar
-                ar-modes="quick-look"
+                alt={`3D model of ${item.name}`}
+                loading="lazy"
                 camera-controls
                 auto-rotate
+                ar
+                ar-modes="webxr scene-viewer quick-look"
                 shadow-intensity="1"
-                environment-image="neutral"
                 exposure="1"
-                loading="eager"
-                reveal="auto"
-                style={{ width: '100%', height: '100%', background: 'transparent' }}
-                cache-size="1024"
-                max-cache-groups="30"
-            />
-
-            {isLoading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="w-20 h-20 relative">
-                        <svg className="w-full h-full animate-spin text-white" viewBox="0 0 24 24">
-                            <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill="none"
-                                strokeLinecap="round"
-                            />
-                            <circle
-                                className="opacity-75"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill="none"
-                                strokeLinecap="round"
-                                strokeDasharray="40 60"
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-white text-sm font-medium">{loadingProgress}%</span>
+                environment-image="neutral"
+                style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
+            >
+                {isLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        <div className="text-center text-white">
+                            <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-2"></div>
+                            <p className="text-sm">{Math.round(loadingProgress)}% loaded</p>
                         </div>
                     </div>
-                    <p className="mt-3 text-white/90 text-sm">Loading...</p>
-                </div>
-            )}
-
-            {loadError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                    <div className="bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm max-w-[80%] text-center">
-                        {loadError}
+                )}
+                {loadError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                        <p className="text-red-500 bg-white/90 px-4 py-2 rounded-lg">{loadError}</p>
                     </div>
-                </div>
-            )}
+                )}
+            </model-viewer>
         </div>
     );
 };
@@ -232,7 +179,7 @@ const MenuItemCard = ({ item, isSelected, onClick }) => {
             {item.modelInfo?.thumbnail ? (
                 <div className="relative h-24 sm:h-32 bg-gray-50 rounded-t-lg overflow-hidden">
                     <img
-                        src={`${API_URL}${item.modelInfo.thumbnail}.png`}
+                        src={`${CDN_DOMAIN}/${item.modelInfo.thumbnail}`}
                         alt={item.name}
                         className="w-full h-full object-cover"
                     />

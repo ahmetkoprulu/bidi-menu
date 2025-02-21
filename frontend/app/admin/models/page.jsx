@@ -6,6 +6,7 @@ import { XMarkIcon, PlusIcon, CubeTransparentIcon, ArrowLeftIcon } from '@heroic
 import Script from 'next/script';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import OptimizedModelViewer from '@/components/OptimizedModelViewer';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
 const CDN_DOMAIN = process.env.NEXT_PUBLIC_CDN_DOMAIN || '';
@@ -325,14 +326,11 @@ function ModelsContent() {
                                     <div className="border rounded-lg overflow-hidden bg-gray-50">
                                         {previewUrl ? (
                                             <div className="relative">
-                                                <model-viewer
+                                                <OptimizedModelViewer
                                                     id="model-preview"
                                                     src={previewUrl}
-                                                    auto-rotate
-                                                    camera-controls
-                                                    shadow-intensity="1"
                                                     style={{ width: '100%', height: '300px' }}
-                                                ></model-viewer>
+                                                />
                                                 <div className="absolute bottom-2 right-2 flex space-x-2">
                                                     {formData.thumbnail && (
                                                         <div className="px-3 py-1.5 text-sm text-white bg-green-500 bg-opacity-50 rounded-md">
@@ -345,7 +343,6 @@ function ModelsContent() {
                                                             const modelViewer = document.getElementById('model-preview');
                                                             if (modelViewer) {
                                                                 const screenshot = modelViewer.toDataURL('image/png');
-                                                                // Convert base64 to blob
                                                                 const res = await fetch(screenshot);
                                                                 const blob = await res.blob();
                                                                 setFormData(prev => ({
@@ -411,18 +408,13 @@ function ModelsContent() {
                                 </button>
                             </div>
                             <div className="relative bg-gray-100" style={{ height: '70vh' }}>
-                                <model-viewer
+                                <OptimizedModelViewer
                                     src={CDN_DOMAIN ? `${CDN_DOMAIN}/${selectedModel.glbFile}` : `${BASE_URL}${selectedModel.glbFile}.glb`}
                                     ios-src={CDN_DOMAIN ? `${CDN_DOMAIN}/${selectedModel.usdzFile}` : `${BASE_URL}${selectedModel.usdzFile}.usdz`}
                                     poster={selectedModel.thumbnail ? (CDN_DOMAIN ? `${CDN_DOMAIN}/${selectedModel.thumbnail}` : `${BASE_URL}${selectedModel.thumbnail}.png`) : ''}
                                     alt={`3D model of ${selectedModel.name}`}
-                                    auto-rotate
-                                    camera-controls
-                                    shadow-intensity="1"
-                                    environment-image="neutral"
-                                    exposure="1"
                                     style={{ width: '100%', height: '100%' }}
-                                ></model-viewer>
+                                />
                             </div>
                             <div className="p-4 bg-white border-t">
                                 <div className="flex justify-between items-center">
