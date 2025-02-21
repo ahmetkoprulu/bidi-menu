@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { modelService } from '@/services/model-service';
 import { XMarkIcon, PlusIcon, CubeTransparentIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import Script from 'next/script';
@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
 const CDN_DOMAIN = process.env.NEXT_PUBLIC_CDN_DOMAIN || '';
 
-export default function ModelsPage() {
+function ModelsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const clientId = searchParams.get('clientId');
@@ -498,5 +498,25 @@ export default function ModelsPage() {
                 )}
             </div>
         </>
+    );
+}
+
+export default function ModelsPage() {
+    return (
+        <Suspense fallback={
+            <>
+                <Navbar />
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="flex items-center justify-center h-64">
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                            <span className="text-gray-600">Loading models...</span>
+                        </div>
+                    </div>
+                </div>
+            </>
+        }>
+            <ModelsContent />
+        </Suspense>
     );
 } 
