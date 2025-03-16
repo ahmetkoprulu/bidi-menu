@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Camera, Upload, QrCode, Edit, Trash2, Eye, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, Upload, QrCode, Edit, Trash2, Eye, X, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import QRCodeModal from '@/components/QRCodeModal';
+import * as XLSX from 'xlsx';
 
 const API_URL = 'https://192.168.1.37:8000';
 
@@ -14,6 +15,7 @@ export default function MenuCreatorPage() {
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [isDragging, setIsDragging] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [categories, setCategories] = useState([]);
 
     const handleFiles = useCallback((files) => {
         const newFiles = Array.from(files).map(file => ({
@@ -56,12 +58,82 @@ export default function MenuCreatorPage() {
         );
     }, [uploadedFiles.length]);
 
+    const handleExcelImport = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsLoading(true);
+
+        try {
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            const existingCategories = [...categories];
+            const updatedMenuItems = [...menuItems];
+
+            for (const row of jsonData) {
+                if (!row.name || !row.price) {
+                    console.warn('Skipping row with missing required fields:', row);
+                    continue;
+                }
+
+                const categoryName = row.category || 'Uncategorized';
+                let categoryId = existingCategories.find(c => c.name === categoryName)?.id;
+
+                if (!categoryId) {
+                    categoryId = Math.random().toString(36).substr(2, 9);
+                    existingCategories.push({
+                        id: categoryId,
+                        name: categoryName
+                    });
+                }
+
+                const existingItemIndex = updatedMenuItems.findIndex(
+                    item => item.name.toLowerCase() === row.name.toLowerCase()
+                );
+
+                const price = typeof row.price === 'number'
+                    ? row.price
+                    : parseFloat(row.price.toString().replace(/[^0-9.]/g, ''));
+
+                if (existingItemIndex >= 0) {
+                    updatedMenuItems[existingItemIndex] = {
+                        ...updatedMenuItems[existingItemIndex],
+                        name: row.name,
+                        description: row.description || updatedMenuItems[existingItemIndex].description,
+                        price: isNaN(price) ? updatedMenuItems[existingItemIndex].price : price,
+                        categoryId: categoryId
+                    };
+                } else {
+                    updatedMenuItems.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        name: row.name,
+                        description: row.description || '',
+                        price: isNaN(price) ? 0 : price,
+                        categoryId: categoryId
+                    });
+                }
+            }
+
+            setCategories(existingCategories);
+            setMenuItems(updatedMenuItems);
+
+            alert(`Successfully imported ${jsonData.length} items from Excel`);
+        } catch (error) {
+            console.error('Error importing Excel file:', error);
+            alert('Failed to import Excel file. Please check the format and try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const startScanning = async () => {
         if (uploadedFiles.length === 0) return;
         setIsLoading(true);
 
         try {
-            // Process each image and combine results
             const allItems = [];
             for (const image of uploadedFiles) {
                 const formData = new FormData();
@@ -91,7 +163,6 @@ export default function MenuCreatorPage() {
 
         console.log('Uploading model for menu item:', menuItemId);
 
-        // Store the model file in pending models
         setPendingModels(prev => ({
             ...prev,
             [menuItemId]: {
@@ -106,7 +177,6 @@ export default function MenuCreatorPage() {
         console.log('Generating QR code...');
 
         try {
-            // First, upload all pending models
             for (const [menuItemId, model] of Object.entries(pendingModels)) {
                 const formData = new FormData();
                 formData.append('file', model.file);
@@ -121,7 +191,6 @@ export default function MenuCreatorPage() {
                 }
             }
 
-            // Then generate QR code
             const payload = {
                 menuItems: menuItems.map(item => ({
                     ...item,
@@ -144,7 +213,7 @@ export default function MenuCreatorPage() {
             const data = await response.json();
             console.log('QR code generated:', data);
             setQrData(data);
-            setPendingModels({}); // Clear pending models after successful upload
+            setPendingModels({});
         } catch (error) {
             console.error('Error generating QR:', error);
             alert('Failed to generate QR code. Please try again.');
@@ -155,11 +224,23 @@ export default function MenuCreatorPage() {
 
     return (
         <div className="min-h-screen bg-white">
-            {/* Header */}
             <header className="border-b">
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <h1 className="text-lg font-semibold text-black">Menu Manager</h1>
                     <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <label className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
+                                <FileSpreadsheet className="w-4 h-4" />
+                                <span className="text-sm">Import Excel</span>
+                                <input
+                                    type="file"
+                                    accept=".xlsx,.xls,.csv"
+                                    onChange={handleExcelImport}
+                                    className="hidden"
+                                />
+                            </label>
+                        </div>
+
                         {menuItems.length > 0 && (
                             <button
                                 onClick={handleGenerateQR}
@@ -174,11 +255,8 @@ export default function MenuCreatorPage() {
                 </div>
             </header>
 
-            {/* Split View Container */}
             <div className="flex h-[calc(100vh-4rem)]">
-                {/* Left Panel - Upload and Preview */}
                 <div className="w-1/2 border-r p-6 flex flex-col">
-                    {/* Upload Area */}
                     <div
                         className={`relative border-2 border-dashed rounded-lg p-6 ${isDragging ? 'border-black bg-gray-50' : 'border-gray-300'
                             } transition-colors mb-4`}
@@ -210,7 +288,6 @@ export default function MenuCreatorPage() {
                         </div>
                     </div>
 
-                    {/* Scan Button */}
                     {uploadedFiles.length > 0 && (
                         <button
                             onClick={startScanning}
@@ -231,7 +308,6 @@ export default function MenuCreatorPage() {
                         </button>
                     )}
 
-                    {/* Image Preview Slider */}
                     {uploadedFiles.length > 0 && (
                         <div className="relative h-96 bg-gray-50 rounded-lg overflow-hidden">
                             <img
@@ -275,100 +351,191 @@ export default function MenuCreatorPage() {
                     )}
                 </div>
 
-                {/* Right Panel - Menu Items */}
                 <div className="w-1/2 p-6 overflow-y-auto">
-                    <div className="space-y-4">
-                        {menuItems.map((item) => (
-                            <div key={item.id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                <div className="flex justify-between items-start gap-4">
-                                    <div>
-                                        <h3 className="font-medium text-black">{item.name}</h3>
-                                        <p className="text-sm text-gray-900 mt-1">{item.description}</p>
-                                        <p className="text-sm font-medium mt-2 text-black">${item.price}</p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button className="p-1.5 text-gray-700 hover:text-black rounded-md">
-                                            <Edit className="w-4 h-4" />
-                                        </button>
-                                        <button className="p-1.5 text-gray-700 hover:text-red-600 rounded-md">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
+                    {categories.length > 0 ? (
+                        <div className="space-y-8">
+                            {categories.map(category => {
+                                const categoryItems = menuItems.filter(item => item.categoryId === category.id);
+                                if (categoryItems.length === 0) return null;
 
-                                {/* Model Upload */}
-                                <div className="mt-4">
-                                    {!pendingModels[item.id] ? (
-                                        <div className="group relative">
-                                            <label className="flex items-center gap-2 px-4 py-3 bg-white text-sm text-gray-900 rounded-lg cursor-pointer hover:bg-gray-50 border border-dashed border-gray-200 transition-all">
-                                                <Upload className="w-4 h-4" />
-                                                <span>Add 3D Model</span>
-                                                <span className="text-xs text-gray-700">.glb, .gltf</span>
-                                                <input
-                                                    type="file"
-                                                    accept=".glb,.gltf"
-                                                    onChange={(e) => handleModelUpload(e, item.id)}
-                                                    className="hidden"
-                                                />
-                                            </label>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
-                                                        <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                        </svg>
+                                return (
+                                    <div key={category.id} className="space-y-4">
+                                        <h2 className="text-lg font-medium text-black border-b pb-2">{category.name}</h2>
+                                        <div className="space-y-4">
+                                            {categoryItems.map((item) => (
+                                                <div key={item.id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                                    <div className="flex justify-between items-start gap-4">
+                                                        <div>
+                                                            <h3 className="font-medium text-black">{item.name}</h3>
+                                                            <p className="text-sm text-gray-900 mt-1">{item.description}</p>
+                                                            <p className="text-sm font-medium mt-2 text-black">${item.price}</p>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button className="p-1.5 text-gray-700 hover:text-black rounded-md">
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            <button className="p-1.5 text-gray-700 hover:text-red-600 rounded-md">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-black truncate">
-                                                            {pendingModels[item.id].name}
-                                                        </p>
-                                                        <p className="text-xs text-gray-700">
-                                                            3D Model
-                                                        </p>
+
+                                                    <div className="mt-4">
+                                                        {!pendingModels[item.id] ? (
+                                                            <div className="group relative">
+                                                                <label className="flex items-center gap-2 px-4 py-3 bg-white text-sm text-gray-900 rounded-lg cursor-pointer hover:bg-gray-50 border border-dashed border-gray-200 transition-all">
+                                                                    <Upload className="w-4 h-4" />
+                                                                    <span>Add 3D Model</span>
+                                                                    <span className="text-xs text-gray-700">.glb, .gltf</span>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept=".glb,.gltf"
+                                                                        onChange={(e) => handleModelUpload(e, item.id)}
+                                                                        className="hidden"
+                                                                    />
+                                                                </label>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                                                                            <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                                                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-sm font-medium text-black truncate">
+                                                                                {pendingModels[item.id].name}
+                                                                            </p>
+                                                                            <p className="text-xs text-gray-700">
+                                                                                3D Model
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex gap-1">
+                                                                        <button
+                                                                            onClick={() => handleModelUpload(null, item.id)}
+                                                                            className="p-1.5 text-gray-700 hover:text-black rounded"
+                                                                        >
+                                                                            <Eye className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setPendingModels(prev => {
+                                                                                    const next = { ...prev };
+                                                                                    delete next[item.id];
+                                                                                    return next;
+                                                                                });
+                                                                            }}
+                                                                            className="p-1.5 text-gray-700 hover:text-red-600 rounded"
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-1">
-                                                    <button
-                                                        onClick={() => handleModelUpload(null, item.id)}
-                                                        className="p-1.5 text-gray-700 hover:text-black rounded"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setPendingModels(prev => {
-                                                                const next = { ...prev };
-                                                                delete next[item.id];
-                                                                return next;
-                                                            });
-                                                        }}
-                                                        className="p-1.5 text-gray-700 hover:text-red-600 rounded"
-                                                    >
-                                                        <X className="w-4 h-4" />
-                                                    </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {menuItems.map((item) => (
+                                <div key={item.id} className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div>
+                                            <h3 className="font-medium text-black">{item.name}</h3>
+                                            <p className="text-sm text-gray-900 mt-1">{item.description}</p>
+                                            <p className="text-sm font-medium mt-2 text-black">${item.price}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button className="p-1.5 text-gray-700 hover:text-black rounded-md">
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button className="p-1.5 text-gray-700 hover:text-red-600 rounded-md">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4">
+                                        {!pendingModels[item.id] ? (
+                                            <div className="group relative">
+                                                <label className="flex items-center gap-2 px-4 py-3 bg-white text-sm text-gray-900 rounded-lg cursor-pointer hover:bg-gray-50 border border-dashed border-gray-200 transition-all">
+                                                    <Upload className="w-4 h-4" />
+                                                    <span>Add 3D Model</span>
+                                                    <span className="text-xs text-gray-700">.glb, .gltf</span>
+                                                    <input
+                                                        type="file"
+                                                        accept=".glb,.gltf"
+                                                        onChange={(e) => handleModelUpload(e, item.id)}
+                                                        className="hidden"
+                                                    />
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                                                            <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium text-black truncate">
+                                                                {pendingModels[item.id].name}
+                                                            </p>
+                                                            <p className="text-xs text-gray-700">
+                                                                3D Model
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => handleModelUpload(null, item.id)}
+                                                            className="p-1.5 text-gray-700 hover:text-black rounded"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setPendingModels(prev => {
+                                                                    const next = { ...prev };
+                                                                    delete next[item.id];
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            className="p-1.5 text-gray-700 hover:text-red-600 rounded"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
 
-                        {menuItems.length === 0 && (
-                            <div className="text-center py-12">
-                                <p className="text-gray-500">
-                                    No menu items yet. Upload images and start scanning!
-                                </p>
-                            </div>
-                        )}
-                    </div>
+                            {menuItems.length === 0 && (
+                                <div className="text-center py-12">
+                                    <p className="text-gray-500">
+                                        No menu items yet. Upload images, start scanning, or import from Excel!
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* QR Code Modal */}
             {qrData && (
                 <QRCodeModal
                     qrData={qrData}

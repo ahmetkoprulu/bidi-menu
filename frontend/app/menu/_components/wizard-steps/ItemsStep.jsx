@@ -14,12 +14,17 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { useState } from 'react';
+import * as XLSX from 'xlsx';
+import { FileSpreadsheet } from 'lucide-react';
 import Category from '@/components/containers/Category';
 import MenuItem from '@/components/containers/MenuItem';
 import DashedButton from '@/components/buttons/DashedButton';
 import { generateGuid } from '@/utils/guid';
 
 export default function ItemsStep({ menu, setMenu }) {
+    const [isImporting, setIsImporting] = useState(false);
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
@@ -160,13 +165,119 @@ export default function ItemsStep({ menu, setMenu }) {
         }));
     };
 
+    const handleExcelImport = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsImporting(true);
+
+        try {
+            // Read the Excel file
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            // Process the Excel data
+            const updatedMenu = { ...menu };
+            const existingCategories = [...updatedMenu.categories];
+
+            for (const row of jsonData) {
+                // Validate required fields
+                if (!row.name || !row.price) {
+                    console.warn('Skipping row with missing required fields:', row);
+                    continue;
+                }
+
+                // Handle category
+                const categoryName = row.category || 'Uncategorized';
+                let category = existingCategories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+
+                // Create category if it doesn't exist
+                if (!category) {
+                    category = {
+                        id: generateGuid(),
+                        name: categoryName,
+                        description: '',
+                        image: '',
+                        menuItems: []
+                    };
+                    existingCategories.push(category);
+                }
+
+                // Format price as a number
+                const price = typeof row.price === 'number'
+                    ? row.price
+                    : parseFloat(row.price.toString().replace(/[^0-9.]/g, ''));
+
+                // Check if item already exists in this category
+                const existingItemIndex = category.menuItems.findIndex(
+                    item => item.name.toLowerCase() === row.name.toLowerCase()
+                );
+
+                if (existingItemIndex >= 0) {
+                    // Update existing item
+                    category.menuItems[existingItemIndex] = {
+                        ...category.menuItems[existingItemIndex],
+                        name: row.name,
+                        description: row.description || category.menuItems[existingItemIndex].description,
+                        price: isNaN(price) ? category.menuItems[existingItemIndex].price : price
+                    };
+                } else {
+                    // Create new item
+                    const newItem = {
+                        id: generateGuid(),
+                        name: row.name,
+                        description: row.description || '',
+                        price: isNaN(price) ? 0 : price,
+                        modelId: null
+                    };
+                    category.menuItems.push(newItem);
+                }
+            }
+
+            // Update menu with new data
+            updatedMenu.categories = existingCategories;
+            setMenu(updatedMenu);
+
+            alert(`Successfully imported ${jsonData.length} items from Excel`);
+        } catch (error) {
+            console.error('Error importing Excel file:', error);
+            alert('Failed to import Excel file. Please check the format and try again.');
+        } finally {
+            setIsImporting(false);
+            // Reset the file input
+            e.target.value = '';
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-lg font-medium text-gray-900 mb-1">Menu Items</h2>
-                <p className="text-sm text-gray-500 mb-4">
-                    Organize your menu items into categories.
-                </p>
+                <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 className="text-lg font-medium text-gray-900 mb-1">Menu Items</h2>
+                        <p className="text-sm text-gray-500">
+                            Organize your menu items into categories.
+                        </p>
+                    </div>
+
+                    <div className="relative">
+                        <label className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
+                            <FileSpreadsheet className="w-4 h-4" />
+                            <span className="text-sm">
+                                {isImporting ? 'Importing...' : 'Import Excel'}
+                            </span>
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                onChange={handleExcelImport}
+                                disabled={isImporting}
+                                className="hidden"
+                            />
+                        </label>
+                    </div>
+                </div>
 
                 <DndContext
                     sensors={sensors}
